@@ -57,18 +57,10 @@ function getDefaultImagesDir() {
 
 function getDefaultOutputDir() {
     const localOutput = 'D:\\Project Anti\\Auto-Google-Ads\\output';
-    if (fs.existsSync(path.dirname(localOutput))) {
-        if (!fs.existsSync(localOutput)) fs.mkdirSync(localOutput, { recursive: true });
-        return localOutput;
+    if (!fs.existsSync(localOutput)) {
+        try { fs.mkdirSync(localOutput, { recursive: true }); } catch (e) {}
     }
-    try {
-        const docs = app.getPath('documents');
-        const p = path.join(docs, 'GoogleAdsExports');
-        if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
-        return p;
-    } catch (e) {
-        return localOutput;
-    }
+    return localOutput;
 }
 
 function readConfig() {
@@ -661,24 +653,9 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
         csvRows.push(rowKw.map(escapeCsv).join(','));
     }
 
-    // Ghi file với UTF-8 BOM (\uFEFF)
+    // Ghi file với UTF-8 BOM (\uFEFF) chỉ vào đúng thư mục chỉ định ở tool (D:\Project Anti\Auto-Google-Ads\output)
     const csvContent = '\uFEFF' + csvRows.join('\r\n');
     fs.writeFileSync(csvFilePath, csvContent, 'utf8');
-
-    // Đồng bộ sang thư mục Documents nếu tồn tại để người dùng tiện tìm kiếm
-    try {
-        const docsExport = path.join(app.getPath('documents'), 'GoogleAdsExports');
-        if (!fs.existsSync(docsExport)) fs.mkdirSync(docsExport, { recursive: true });
-        const docsFilePath = path.join(docsExport, csvFileName);
-        fs.writeFileSync(docsFilePath, csvContent, 'utf8');
-    } catch (e) {}
-
-    // Đồng bộ sang thư mục Downloads để người dùng tiện tải lên Google Ads
-    try {
-        const downloadsExport = app.getPath('downloads');
-        const dlFilePath = path.join(downloadsExport, csvFileName);
-        fs.writeFileSync(dlFilePath, csvContent, 'utf8');
-    } catch (e) {}
 
     return {
         success: true,
