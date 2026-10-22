@@ -148,6 +148,11 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label">Ngân sách ngày mặc định / Mỗi chiến dịch (VNĐ)</label>
+            <input type="number" id="cfg_daily_budget" class="form-input" value="50000" step="5000">
+          </div>
+
+          <div class="form-group">
             <label class="form-label">Giá thầu tối đa mặc định (Max CPC - VNĐ)</label>
             <input type="number" id="cfg_max_cpc" class="form-input" value="2000" step="100">
           </div>
@@ -207,22 +212,40 @@
         <div class="batch-chips-list" id="batch_chips_list"></div>
       </section>
 
-      <!-- 3. Campaign Generation Bar -->
-      <section class="campaign-bar">
-        <div class="form-group">
-          <label class="form-label">Tên chiến dịch Google Ads</label>
-          <input type="text" id="input_campaign_name" class="form-input" placeholder="Chiến dịch sản phẩm Web Derma">
+      <!-- 3. Campaign Generation Settings -->
+      <section class="campaign-settings-box">
+        <div class="mode-selector-row">
+          <label class="mode-label active" id="label_mode_separate">
+            <input type="radio" name="campaign_mode" value="separate" checked id="radio_mode_separate">
+            <span>🚀 <b>Tách riêng mỗi sản phẩm 1 Chiến dịch</b> (Khuyên dùng - Tự tạo Chiến dịch & Ngân sách riêng, Ảnh không bị lẫn lộn)</span>
+          </label>
+          <label class="mode-label" id="label_mode_single">
+            <input type="radio" name="campaign_mode" value="single" id="radio_mode_single">
+            <span>📁 <b>Gộp chung vào 1 Chiến dịch có sẵn</b></span>
+          </label>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Giá thầu Max CPC (VNĐ)</label>
-          <input type="number" id="input_max_cpc" class="form-input" value="2000" step="100">
-        </div>
+        <div class="campaign-bar">
+          <div class="form-group" id="grp_campaign_name" style="display: none;">
+            <label class="form-label">Tên chiến dịch Google Ads chung</label>
+            <input type="text" id="input_campaign_name" class="form-input" placeholder="Chiến dịch sản phẩm Web Derma | 21/10">
+          </div>
 
-        <button class="btn-generate" id="btn_generate_campaign">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          <span>TẠO CHIẾN DỊCH & TẢI ẢNH</span>
-        </button>
+          <div class="form-group" id="grp_daily_budget">
+            <label class="form-label">Ngân sách ngày / Mỗi chiến dịch (VNĐ)</label>
+            <input type="number" id="input_daily_budget" class="form-input" value="50000" step="5000">
+          </div>
+
+          <div class="form-group" id="grp_max_cpc">
+            <label class="form-label">Giá thầu Max CPC (VNĐ)</label>
+            <input type="number" id="input_max_cpc" class="form-input" value="2000" step="100">
+          </div>
+
+          <button class="btn-generate" id="btn_generate_campaign">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            <span>TẠO CHIẾN DỊCH & TẢI ẢNH</span>
+          </button>
+        </div>
       </section>
 
       <!-- 4. Terminal Progress Box -->

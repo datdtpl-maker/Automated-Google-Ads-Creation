@@ -695,16 +695,58 @@ body {
 }
 
 /* Campaign Action Controls */
-.campaign-bar {
+.campaign-settings-box {
   background: var(--bg-surface);
   border: 1px solid var(--border-main);
   border-radius: var(--radius-lg);
-  padding: 18px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.mode-selector-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mode-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg-subtle);
+  border: 1.5px solid var(--border-main);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.mode-label:hover {
+  border-color: var(--google-blue);
+  background: #f8fafd;
+}
+.mode-label.active {
+  background: #e8f0fe;
+  border-color: var(--google-blue);
+  color: var(--google-blue);
+}
+.mode-label input[type="radio"] {
+  accent-color: var(--google-blue);
+  cursor: pointer;
+  width: 15px;
+  height: 15px;
+}
+
+.campaign-bar {
   display: grid;
-  grid-template-columns: 2fr 1fr auto;
+  grid-template-columns: 1fr 1fr auto;
   gap: 14px;
   align-items: flex-end;
-  box-shadow: var(--shadow-card);
 }
 
 .btn-generate {

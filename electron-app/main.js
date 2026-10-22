@@ -16,6 +16,8 @@ const DEFAULT_CONFIG = {
     wp_app_password: EMBEDDED_PASS,
     default_campaign_name: "Chiến dịch sản phẩm Web Derma | 21/10",
     max_cpc: 2000,
+    daily_budget: 50000,
+    campaign_mode: "separate",
     root_images_dir: "D:\\Project Anti\\Auto-Google-Ads\\output\\images"
 };
 
@@ -379,9 +381,10 @@ ipcMain.handle('get-product-details', async (event, id) => {
     }
 });
 
-// 9. Cấu trúc Header chuẩn 30 cột cho Google Ads Bulk Upload
+// 9. Cấu trúc Header chuẩn Google Ads Bulk Upload (Tự động tạo Chiến dịch, Ngân sách, Nhóm, RSA, Từ khóa)
 const CSV_HEADERS = [
-    'Campaign', 'Ad group', 'Campaign status', 'Ad group status', 'Max CPC',
+    'Campaign', 'Campaign Type', 'Campaign status', 'Budget', 'Budget type', 'Bid Strategy type',
+    'Ad group', 'Ad group status', 'Max CPC',
     'Ad type', 'Final URL', 'Path 1', 'Path 2'
 ];
 for (let i = 1; i <= 15; i++) CSV_HEADERS.push(`Headline ${i}`);
@@ -398,7 +401,7 @@ function escapeCsv(val) {
 }
 
 // Hàm xử lý từng sản phẩm đơn lẻ (gọi AI, tải ảnh, tạo dòng CSV)
-async function processSingleProduct(product, { apiKey, model, effectiveCampaignName, effectiveMaxCpc, rootImgDir, todayStr }) {
+async function processSingleProduct(product, { apiKey, model, campaignMode = 'separate', effectiveCampaignName, dailyBudget = 50000, effectiveMaxCpc, rootImgDir, todayStr }) {
     const cleanProdName = sanitizeFolderName(product.title || 'san_pham');
     const targetProductImgDir = path.join(rootImgDir, cleanProdName);
 
@@ -535,8 +538,11 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     if (!adGroupName.startsWith('Nhóm ')) adGroupName = `Nhóm ${adGroupName}`;
     if (!adGroupName.includes('|')) adGroupName = `${adGroupName} | ${todayStr}`;
 
+    const isSeparate = campaignMode !== 'single';
+    const targetCampName = isSeparate ? `Chiến dịch SP - ${shortName} | ${todayStr}` : effectiveCampaignName;
+
     const adData = {
-        campaign_name: effectiveCampaignName,
+        campaign_name: targetCampName,
         ad_group_name: adGroupName,
         product_short_name: shortName,
         final_url: product.url,
@@ -583,32 +589,43 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     // Tạo các dòng dữ liệu CSV cho sản phẩm này
     const productRows = [];
 
-    // Dòng 1: Tạo Nhóm quảng cáo
+    // Nếu ở chế độ "Mỗi sản phẩm 1 chiến dịch riêng" (separate): Tạo dòng Cấp Chiến Dịch với Ngân Sách
+    if (isSeparate) {
+        const rowCamp = new Array(CSV_HEADERS.length).fill('');
+        rowCamp[0] = targetCampName;
+        rowCamp[1] = 'Search';
+        rowCamp[2] = 'Enabled';
+        rowCamp[3] = dailyBudget || 50000;
+        rowCamp[4] = 'Daily';
+        rowCamp[5] = 'Manual CPC';
+        productRows.push(rowCamp);
+    }
+
+    // Dòng Nhóm quảng cáo
     const rowAg = new Array(CSV_HEADERS.length).fill('');
-    rowAg[0] = effectiveCampaignName;
-    rowAg[1] = adGroupName;
-    rowAg[2] = 'Enabled';
-    rowAg[3] = 'Enabled';
-    rowAg[4] = effectiveMaxCpc;
+    rowAg[0] = targetCampName;
+    rowAg[6] = adGroupName;
+    rowAg[7] = 'Enabled';
+    rowAg[8] = effectiveMaxCpc;
     productRows.push(rowAg);
 
-    // Dòng 2: Tạo Mẫu quảng cáo RSA
+    // Dòng Mẫu quảng cáo RSA
     const rowAd = new Array(CSV_HEADERS.length).fill('');
-    rowAd[0] = effectiveCampaignName;
-    rowAd[1] = adGroupName;
-    rowAd[5] = 'Responsive search ad';
-    rowAd[6] = product.url;
-    rowAd[7] = path1;
-    rowAd[8] = path2;
+    rowAd[0] = targetCampName;
+    rowAd[6] = adGroupName;
+    rowAd[9] = 'Responsive search ad';
+    rowAd[10] = product.url;
+    rowAd[11] = path1;
+    rowAd[12] = path2;
     for (let i = 0; i < 15; i++) {
-        rowAd[9 + i] = adData.headlines[i] || '';
+        rowAd[13 + i] = adData.headlines[i] || '';
     }
     for (let i = 0; i < 4; i++) {
-        rowAd[24 + i] = adData.descriptions[i] || '';
+        rowAd[28 + i] = adData.descriptions[i] || '';
     }
     productRows.push(rowAd);
 
-    // Dòng 3..N: Tạo Danh sách Từ khóa đã làm sạch ký tự cấm
+    // Dòng Danh sách Từ khóa đã làm sạch ký tự cấm
     for (const kwRaw of adData.keywords) {
         let cleanKw = kwRaw.trim();
         let criterion = 'Broad';
@@ -626,17 +643,19 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
         if (!kwText) continue;
 
         const rowKw = new Array(CSV_HEADERS.length).fill('');
-        rowKw[0] = effectiveCampaignName;
-        rowKw[1] = adGroupName;
-        rowKw[4] = effectiveMaxCpc;
-        rowKw[CSV_HEADERS.length - 2] = kwText;
-        rowKw[CSV_HEADERS.length - 1] = criterion;
+        rowKw[0] = targetCampName;
+        rowKw[6] = adGroupName;
+        rowKw[8] = effectiveMaxCpc;
+        rowKw[32] = kwText;
+        rowKw[33] = criterion;
         productRows.push(rowKw);
     }
 
     return {
         success: true,
         adData,
+        targetCampName,
+        adGroupName,
         rows: productRows,
         images_folder: targetProductImgDir,
         downloaded_images: downloadedImages,
@@ -646,7 +665,7 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
 
 // 10. Tạo chiến dịch hàng loạt cho nhiều sản phẩm
 async function executeBatchCampaign(sender, params) {
-    const { products, campaignName, maxCpc, customImagesDir } = params;
+    const { products, campaignMode = 'separate', campaignName, dailyBudget = 50000, maxCpc, customImagesDir } = params;
     if (!products || !Array.isArray(products) || products.length === 0) {
         return { success: false, error: 'Chưa chọn sản phẩm nào để tạo chiến dịch!' };
     }
@@ -662,6 +681,7 @@ async function executeBatchCampaign(sender, params) {
     const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
     const effectiveCampaignName = campaignName || cfg.default_campaign_name || "Chiến dịch sản phẩm Web Derma | 21/10";
     const effectiveMaxCpc = maxCpc ? parseInt(maxCpc, 10) : (cfg.max_cpc || 2000);
+    const effectiveDailyBudget = dailyBudget ? parseInt(dailyBudget, 10) : (cfg.daily_budget || 50000);
     const rootImgDir = (customImagesDir && customImagesDir.trim()) ? customImagesDir.trim() : (cfg.root_images_dir || getDefaultImagesDir());
 
     const allRows = [];
@@ -681,7 +701,9 @@ async function executeBatchCampaign(sender, params) {
         const res = await processSingleProduct(prod, {
             apiKey,
             model,
+            campaignMode,
             effectiveCampaignName,
+            dailyBudget: effectiveDailyBudget,
             effectiveMaxCpc,
             rootImgDir,
             todayStr
@@ -714,6 +736,7 @@ async function executeBatchCampaign(sender, params) {
 
     return {
         success: true,
+        campaign_mode: campaignMode,
         is_batch: productsResults.length > 1,
         total_products: products.length,
         successful_products: productsResults.length,
