@@ -4,8 +4,21 @@ const fs = require('fs');
 
 let mainWindow = null;
 
-// ThÆ° má»¥c lÆ°u cáº¥u hĂ¬nh cá»¥c bá»™ trĂªn mĂ¡y ngÆ°á» i dĂ¹ng
+// CẤU HÌNH MẶC ĐỊNH
+const DEFAULT_CONFIG = {
+    gemini_api_key: "",
+    gemini_model: "gemini-2.5-flash",
+    wp_url: "https://khaihoanderma.com",
+    wp_user: "admin",
+    wp_app_password: "",
+    default_campaign_name: "Chiến dịch sản phẩm Web Derma",
+    max_cpc: 2000,
+    root_images_dir: "D:\\Project Anti\\Auto-Google-Ads\\output\\images"
+};
+
+// Tìm đường dẫn file config.json
 function getConfigPath() {
+    // 1. Nếu người dùng đã từng lưu trong userData (AppData)
     try {
         const userDataPath = path.join(app.getPath('userData'), 'config.json');
         if (fs.existsSync(userDataPath)) {
@@ -13,6 +26,13 @@ function getConfigPath() {
         }
     } catch (e) {}
 
+    // 2. Kiểm tra file config.json đóng gói sẵn trong app (app.asar)
+    const bundledConfig = path.join(__dirname, 'config.json');
+    if (fs.existsSync(bundledConfig)) {
+        return bundledConfig;
+    }
+
+    // 3. Kiểm tra file config.json ở thư mục cha (môi trường dev)
     const projectConfig = path.join(__dirname, '..', 'config.json');
     if (fs.existsSync(projectConfig)) {
         return projectConfig;
@@ -21,17 +41,12 @@ function getConfigPath() {
     try {
         return path.join(app.getPath('userData'), 'config.json');
     } catch (e) {
-        return path.join(__dirname, 'config.json');
+        return bundledConfig;
     }
 }
 
 function getDefaultImagesDir() {
-    try {
-        const docs = app.getPath('documents');
-        return path.join(docs, 'GoogleAdsImages');
-    } catch (e) {
-        return 'D:\\Project Anti\\Auto-Google-Ads\\output\\images';
-    }
+    return DEFAULT_CONFIG.root_images_dir;
 }
 
 function getDefaultOutputDir() {
@@ -43,26 +58,22 @@ function getDefaultOutputDir() {
     }
 }
 
-const DEFAULT_CONFIG = {
-    gemini_api_key: "",
-    gemini_model: "gemini-2.5-flash",
-    wp_url: "https://khaihoanderma.com",
-    wp_user: "admin",
-    wp_app_password: "",
-    default_campaign_name: "Chiáº¿n dá»‹ch sáº£n pháº©m Web Derma",
-    max_cpc: 2000,
-    root_images_dir: getDefaultImagesDir()
-};
-
 function readConfig() {
     const configPath = getConfigPath();
     let config = { ...DEFAULT_CONFIG };
     if (fs.existsSync(configPath)) {
         try {
-            const data = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            const raw = fs.readFileSync(configPath, 'utf8');
+            const data = JSON.parse(raw);
             config = { ...config, ...data };
+            // Đảm bảo không bị trống các key quan trọng
+            for (const key of Object.keys(DEFAULT_CONFIG)) {
+                if (!config[key] || String(config[key]).trim() === '') {
+                    config[key] = DEFAULT_CONFIG[key];
+                }
+            }
         } catch (e) {
-            console.error('Lá»—i Ä‘á» c config:', e);
+            console.error('Lỗi đọc config:', e);
         }
     } else {
         writeConfig(config);
@@ -71,27 +82,33 @@ function readConfig() {
 }
 
 function writeConfig(newConfig) {
-    const configPath = getConfigPath();
+    let savePath;
     try {
-        const dir = path.dirname(configPath);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(configPath, JSON.stringify(newConfig, null, 4), 'utf8');
+        savePath = path.join(app.getPath('userData'), 'config.json');
+    } catch (e) {
+        savePath = path.join(__dirname, '..', 'config.json');
+    }
 
-        // Náº¿u cĂ³ thá»ƒ, Ä‘á»“ng bá»™ sang thÆ° má»¥c dá»± Ă¡n gá»‘c
+    try {
+        const dir = path.dirname(savePath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(savePath, JSON.stringify(newConfig, null, 4), 'utf8');
+
+        // Đồng bộ sang thư mục dự án nếu tồn tại (môi trường dev)
         const projectConfig = path.join(__dirname, '..', 'config.json');
-        if (projectConfig !== configPath && fs.existsSync(path.dirname(projectConfig))) {
+        if (projectConfig !== savePath && fs.existsSync(path.dirname(projectConfig))) {
             try {
                 fs.writeFileSync(projectConfig, JSON.stringify(newConfig, null, 4), 'utf8');
             } catch (e) {}
         }
         return true;
     } catch (e) {
-        console.error('Lá»—i ghi config:', e);
+        console.error('Lỗi ghi config:', e);
         return false;
     }
 }
 
-// CĂ¡c tiá»‡n Ăch chuáº©n hoĂ¡ vÄƒn báº£n cho Google Ads
+// Cắt ngắn chuỗi thông minh cho tiêu đề và mô tả Google Ads
 function smartTruncate(text, maxChars) {
     if (!text) return '';
     text = String(text).trim();
@@ -124,7 +141,7 @@ function createWindow() {
         minHeight: 720,
         title: 'Google Ads Campaign Auto-Generator Pro',
         icon: iconPath,
-        backgroundColor: '#090d16',
+        backgroundColor: '#f8fafd',
         autoHideMenuBar: true,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
@@ -141,14 +158,14 @@ function createWindow() {
 }
 
 // ==========================================
-// IPC HANDLERS - GIAO TIáº¾P TRá»°C TIáº¾P Há»† THá» NG WINDOWS
+// IPC HANDLERS - GIAO TIẾP VỚI HỆ THỐNG WINDOWS
 // ==========================================
 
-// 1. Chá» n thÆ° má»¥c Windows
+// 1. Hộp thoại chọn thư mục Windows Explorer gốc
 ipcMain.handle('select-folder', async (event, defaultPath) => {
     const current = defaultPath && fs.existsSync(defaultPath) ? defaultPath : undefined;
     const res = await dialog.showOpenDialog(mainWindow, {
-        title: 'Chá» n thÆ° má»¥c lÆ°u hĂ¬nh áº£nh sáº£n pháº©m Google Ads',
+        title: 'Chọn thư mục lưu hình ảnh sản phẩm Google Ads',
         defaultPath: current,
         properties: ['openDirectory', 'createDirectory']
     });
@@ -158,7 +175,7 @@ ipcMain.handle('select-folder', async (event, defaultPath) => {
     return { success: false, canceled: true };
 });
 
-// 2. Má»Ÿ thÆ° má»¥c trong Windows Explorer
+// 2. Mở thư mục trong Windows Explorer
 ipcMain.handle('open-folder', async (event, folderPath) => {
     let target = folderPath;
     if (!target) {
@@ -177,16 +194,16 @@ ipcMain.handle('open-folder', async (event, folderPath) => {
     return { success: true, opened: target };
 });
 
-// 3. Hiá»ƒn thá»‹ file trong thÆ° má»¥c Windows Explorer
+// 3. Hiển thị file trong Windows Explorer
 ipcMain.handle('show-item-in-folder', async (event, filePath) => {
     if (fs.existsSync(filePath)) {
         shell.showItemInFolder(filePath);
         return { success: true };
     }
-    return { success: false, error: 'File khĂ´ng tá»“n táº¡i' };
+    return { success: false, error: 'File không tồn tại' };
 });
 
-// 4. Cáº¥u hĂ¬nh
+// 4. Cấu hình
 ipcMain.handle('get-config', async () => {
     return readConfig();
 });
@@ -196,30 +213,30 @@ ipcMain.handle('save-config', async (event, newConfig) => {
     return { success: ok, config: readConfig() };
 });
 
-// 5. Kiá»ƒm tra Gemini API Key
+// 5. Kiểm tra kết nối Gemini API
 ipcMain.handle('test-gemini', async (event, { key, model }) => {
     try {
         const apiKey = key || readConfig().gemini_api_key;
-        if (!apiKey) return { success: false, message: 'ChÆ°a nháº­p Gemini API Key!' };
+        if (!apiKey) return { success: false, message: 'Chưa nhập Gemini API Key!' };
 
         const testUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
         const res = await fetch(testUrl, { signal: AbortSignal.timeout(10000) });
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
-            const msg = errData?.error?.message || `Lá»—i HTTP ${res.status}`;
-            return { success: false, message: `Gemini API tá»« chá»‘i: ${msg}` };
+            const msg = errData?.error?.message || `Lỗi HTTP ${res.status}`;
+            return { success: false, message: `Gemini API từ chối: ${msg}` };
         }
         const data = await res.json();
         return { 
             success: true, 
-            message: `Káº¿t ná»‘i Gemini thĂ nh cĂ´ng! TĂ¬m tháº¥y ${data.models?.length || 0} mĂ´ hĂ¬nh kháº£ dá»¥ng.` 
+            message: `Kết nối Gemini thành công! Tìm thấy ${data.models?.length || 0} mô hình khả dụng.` 
         };
     } catch (e) {
-        return { success: false, message: `Lá»—i káº¿t ná»‘i Gemini: ${e.message}` };
+        return { success: false, message: `Lỗi kết nối Gemini: ${e.message}` };
     }
 });
 
-// 6. Kiá»ƒm tra WooCommerce
+// 6. Kiểm tra kết nối WooCommerce
 ipcMain.handle('test-wc', async (event, { wp_url, wp_user, wp_app_password }) => {
     try {
         const cfg = readConfig();
@@ -228,7 +245,7 @@ ipcMain.handle('test-wc', async (event, { wp_url, wp_user, wp_app_password }) =>
         const pass = wp_app_password || cfg.wp_app_password;
 
         if (!url || !user || !pass) {
-            return { success: false, message: 'Vui lĂ²ng nháº­p Ä‘áº§y Ä‘á»§ URL website, tĂªn ngÆ°á» i dĂ¹ng vĂ  Application Password!' };
+            return { success: false, message: 'Vui lòng nhập đầy đủ URL website, tài khoản và mật khẩu ứng dụng!' };
         }
 
         const auth = Buffer.from(`${user}:${pass}`).toString('base64');
@@ -242,26 +259,26 @@ ipcMain.handle('test-wc', async (event, { wp_url, wp_user, wp_app_password }) =>
         });
 
         if (!res.ok) {
-            return { success: false, message: `Lá»—i káº¿t ná»‘i Website (HTTP ${res.status}). Kiá»ƒm tra láº¡i thĂ´ng tin Ä‘Äƒng nháº­p hoáº·c quyá» n REST API.` };
+            return { success: false, message: `Lỗi kết nối Website (HTTP ${res.status}). Kiểm tra lại tài khoản hoặc quyền REST API.` };
         }
 
         const data = await res.json();
-        return { success: true, message: `Káº¿t ná»‘i WooCommerce thĂ nh cĂ´ng! Sáº£n pháº©m máº«u: ${data[0]?.name || 'OK'}` };
+        return { success: true, message: `Kết nối WooCommerce thành công! Sản phẩm mẫu: ${data[0]?.name || 'OK'}` };
     } catch (e) {
-        return { success: false, message: `KhĂ´ng thá»ƒ káº¿t ná»‘i website: ${e.message}` };
+        return { success: false, message: `Không thể kết nối website: ${e.message}` };
     }
 });
 
-// 7. TĂ¬m kiáº¿m sáº£n pháº©m WooCommerce
+// 7. Tìm kiếm sản phẩm WooCommerce
 ipcMain.handle('search-products', async (event, keyword) => {
     try {
         const cfg = readConfig();
         const url = (cfg.wp_url || '').replace(/\/+$/, '');
         const auth = Buffer.from(`${cfg.wp_user}:${cfg.wp_app_password}`).toString('base64');
 
-        let endpoint = `${url}/wp-json/wc/v3/products?per_page=10&status=publish`;
+        let endpoint = `${url}/wp-json/wc/v3/products?per_page=12&status=publish`;
         if (keyword && keyword.trim().length > 0) {
-            endpoint = `${url}/wp-json/wc/v3/products?search=${encodeURIComponent(keyword.trim())}&per_page=10&status=publish`;
+            endpoint = `${url}/wp-json/wc/v3/products?search=${encodeURIComponent(keyword.trim())}&per_page=12&status=publish`;
         }
 
         const res = await fetch(endpoint, {
@@ -277,7 +294,7 @@ ipcMain.handle('search-products', async (event, keyword) => {
         const simplified = items.map(p => ({
             id: p.id,
             name: p.name,
-            price: p.price ? `${Number(p.price).toLocaleString('vi-VN')} Ä‘` : 'LiĂªn há»‡',
+            price: p.price ? `${Number(p.price).toLocaleString('vi-VN')} đ` : 'Liên hệ',
             regular_price: p.regular_price,
             sale_price: p.sale_price,
             permalink: p.permalink,
@@ -293,7 +310,7 @@ ipcMain.handle('search-products', async (event, keyword) => {
     }
 });
 
-// 8. Láº¥y chi tiáº¿t sáº£n pháº©m
+// 8. Lấy chi tiết sản phẩm theo ID
 ipcMain.handle('get-product-details', async (event, id) => {
     try {
         const cfg = readConfig();
@@ -317,7 +334,7 @@ ipcMain.handle('get-product-details', async (event, id) => {
                 id: p.id,
                 title: p.name,
                 url: p.permalink,
-                price: p.price ? `${Number(p.price).toLocaleString('vi-VN')} Ä‘` : '',
+                price: p.price ? `${Number(p.price).toLocaleString('vi-VN')} đ` : '',
                 regular_price: p.regular_price,
                 sale_price: p.sale_price,
                 categories: p.categories ? p.categories.map(c => c.name).join(', ') : '',
@@ -330,64 +347,62 @@ ipcMain.handle('get-product-details', async (event, id) => {
     }
 });
 
-// 9. Táº¡o chiáº¿n dá»‹ch Google Ads, táº£i áº£nh vĂ  xuáº¥t CSV All-in-One
+// 9. Tạo chiến dịch Google Ads và xuất CSV chuẩn
 ipcMain.handle('generate-campaign', async (event, params) => {
     const { product, campaignName, maxCpc, customImagesDir } = params;
     const cfg = readConfig();
 
-    const apiKey = cfg.gemini_api_key;
+    const apiKey = cfg.gemini_api_key || DEFAULT_CONFIG.gemini_api_key;
     const model = cfg.gemini_model || 'gemini-2.5-flash';
     if (!apiKey) {
-        return { success: false, error: 'Thiáº¿u Gemini API Key! Vui lĂ²ng nháº­p vĂ  lÆ°u trong Cáº¥u hĂ¬nh há»‡ thá»‘ng.' };
+        return { success: false, error: 'Thiếu Gemini API Key! Vui lòng nhập và lưu trong Cấu hình hệ thống.' };
     }
 
     const today = new Date();
     const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-    const effectiveCampaignName = campaignName || cfg.default_campaign_name || `Chiáº¿n dá»‹ch sáº£n pháº©m | ${todayStr}`;
+    const effectiveCampaignName = campaignName || cfg.default_campaign_name || `Chiến dịch sản phẩm | ${todayStr}`;
     const effectiveMaxCpc = maxCpc ? parseInt(maxCpc, 10) : (cfg.max_cpc || 2000);
 
-    // XĂ¡c Ä‘á»‹nh thÆ° má»¥c lÆ°u áº£nh chĂnh
     const rootImgDir = (customImagesDir && customImagesDir.trim()) ? customImagesDir.trim() : (cfg.root_images_dir || getDefaultImagesDir());
     const cleanProdName = sanitizeFolderName(product.title || 'san_pham');
     const targetProductImgDir = path.join(rootImgDir, cleanProdName);
 
-    // 1. Gá» i Gemini API sinh ná»™i dung quáº£ng cĂ¡o chuáº©n
     const prompt = `
-Báº¡n lĂ  chuyĂªn gia thiáº¿t láº­p Google Ads Search chuyĂªn nghiá»‡p cáº¥p cao.
-Nhiá»‡m vá»¥ cá»§a báº¡n lĂ  Ä‘á» c ká»¹ thĂ´ng tin sáº£n pháº©m vĂ  táº¡o cáº¥u trĂºc Quáº£ng cĂ¡o tĂ¬m kiáº¿m thĂch á»©ng (Responsive Search Ads - RSA) Ä‘áº¡t Ä‘iá»ƒm tá»‘i Æ°u "Ráº¥t tá»‘t" (Ad Strength: Excellent).
+Bạn là chuyên gia thiết lập Google Ads Search chuyên nghiệp cấp cao.
+Nhiệm vụ của bạn là đọc kỹ thông tin sản phẩm và tạo cấu trúc Quảng cáo tìm kiếm thích ứng (Responsive Search Ads - RSA) đạt điểm tối ưu "Rất tốt" (Ad Strength: Excellent).
 
-THĂ”NG TIN Sáº¢N PHáº¨M:
-- TiĂªu Ä‘á»  gá»‘c: ${product.title}
-- GiĂ¡ bĂ¡n: ${product.price || 'Theo giĂ¡ web'}
-- URL trang sáº£n pháº©m: ${product.url}
-- Danh má»¥c: ${product.categories || ''}
-- Ná»™i dung chi tiáº¿t:
+THÔNG TIN SẢN PHẨM:
+- Tiêu đề gốc: ${product.title}
+- Giá bán: ${product.price || 'Theo giá web'}
+- URL trang sản phẩm: ${product.url}
+- Danh mục: ${product.categories || ''}
+- Nội dung chi tiết:
 ${(product.description || '').substring(0, 3500)}
 
-QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š GOOGLE Tá»ª CHá» I):
-1. TĂªn nhĂ³m quáº£ng cĂ¡o (ad_group_name): Bắt buộc định dạng "Nhóm [Tên Rút Gọn] | ${todayStr}".
-2. Ä Æ°á» ng dáº«n hiá»ƒn thá»‹:
-   - path1: Tá»‘i Ä‘a 15 kĂ½ tá»±, tiáº¿ng Viá»‡t khĂ´ng dáº¥u hoáº·c tiáº¿ng Anh, ná»‘i báº±ng gáº¡ch ngang (vĂ­ dá»¥: "chinh-hang", "tri-mun", "gia-tot").
-   - path2: Tá»‘i Ä‘a 15 kĂ½ tá»± (vĂ­ dá»¥: "30g", "chuan-y-khoa", "uu-dai").
-3. TiĂªu Ä‘á»  quáº£ng cĂ¡o (headlines): Báº®T BUá»˜C Ä á»¦ 15 TIĂŠU Ä á»€.
-   - Má»–I TIĂŠU Ä á»€ Tá» I Ä A 30 KĂ  Tá»° (Bao gá»“m cáº£ dáº¥u cĂ¡ch). Ä á»™ dĂ i an toĂ n 18 - 28 kĂ½ tá»±. Tuyá»‡t Ä‘á»‘i khĂ´ng vÆ°á»£t quĂ¡ 30 kĂ½ tá»±!
-   - KhĂ´ng trĂ¹ng láº·p, Ä‘a dáº¡ng cĂ¡c gĂ³c Ä‘á»™: TĂªn sáº£n pháº©m, TĂªn thÆ°Æ¡ng hiá»‡u, CĂ´ng dá»¥ng chĂ­nh, Cam káº¿t chĂ­nh hĂ£ng, DÆ°á»£c sÄ© tÆ° váº¥n, GiĂ¡ tá»‘t hĂ´m nay, Giao hĂ ng nhanh.
-   - Viáº¿t hoa chá»¯ cĂ¡i Ä‘áº§u má»—i tá»« (Title Case).
-4. Ä oáº¡n mĂ´ táº£ (descriptions): Báº®T BUá»˜C Ä á»¦ 4 Ä Oáº N MĂ” Táº¢.
-   - Má»–I Ä Oáº N MĂ” Táº¢ Tá» I Ä A 90 KĂ  Tá»° (Bao gá»“m cáº£ dáº¥u cĂ¡ch). Ä á»™ dĂ i an toĂ n 65 - 85 kĂ½ tá»±. Tuyá»‡t Ä‘á»‘i khĂ´ng quĂ¡ 90 kĂ½ tá»±!
-5. Tá»« khĂ³a (keywords): Táº¡o danh sĂ¡ch 15 - 20 tá»« khĂ³a cĂ³ tá»· lá»‡ chuyá»ƒn Ä‘á»•i cao nháº¥t:
-   - Tá»« khĂ³a Ä‘á»‘i sĂ¡nh cá»¥m tá»« Ä‘áº·t trong ngoáº·c kĂ©p: "tá»« khĂ³a"
-   - Tá»« khĂ³a Ä‘á»‘i sĂ¡nh chĂ­nh xĂ¡c Ä‘áº·t trong ngoáº·c vuĂ´ng: [tá»« khĂ³a]
+QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
+1. Tên nhóm quảng cáo (ad_group_name): Bắt buộc định dạng "Nhóm [Tên Rút Gọn] | ${todayStr}".
+2. Đường dẫn hiển thị:
+   - path1: Tối đa 15 ký tự, tiếng Việt không dấu hoặc tiếng Anh, nối bằng gạch ngang (ví dụ: "chinh-hang", "tri-mun", "gia-tot").
+   - path2: Tối đa 15 ký tự (ví dụ: "30g", "chuan-y-khoa", "uu-dai").
+3. Tiêu đề quảng cáo (headlines): BẮT BUỘC ĐỦ 15 TIÊU ĐỀ.
+   - MỖI TIÊU ĐỀ TỐI ĐA 30 KÝ TỰ (Bao gồm cả dấu cách). Độ dài an toàn 18 - 28 ký tự. Tuyệt đối không vượt quá 30 ký tự!
+   - Không trùng lặp, đa dạng các góc độ: Tên sản phẩm, Tên thương hiệu, Công dụng chính, Cam kết chính hãng, Dược sĩ tư vấn, Giá tốt hôm nay, Giao hàng nhanh.
+   - Viết hoa chữ cái đầu mỗi từ (Title Case).
+4. Đoạn mô tả (descriptions): BẮT BUỘC ĐỦ 4 ĐOẠN MÔ TẢ.
+   - MỖI ĐOẠN MÔ TẢ TỐI ĐA 90 KÝ TỰ (Bao gồm cả dấu cách). Độ dài an toàn 65 - 85 ký tự. Tuyệt đối không quá 90 ký tự!
+5. Từ khóa (keywords): Tạo danh sách 15 - 20 từ khóa có tỷ lệ chuyển đổi cao nhất:
+   - Từ khóa đối sánh cụm từ đặt trong ngoặc kép: "từ khóa"
+   - Từ khóa đối sánh chính xác đặt trong ngoặc vuông: [từ khóa]
 
-Ä á»ŠNH Dáº NG Ä áº¦U RA (JSON THUáº¦N TĂšY):
+ĐỊNH DẠNG ĐẦU RA (JSON THUẦN TÚY):
 {
-  "product_short_name": "TĂªn sáº£n pháº©m ngáº¯n gá» n",
-  "ad_group_name": "NhĂ³m [TĂªn ngáº¯n gá» n] | ${todayStr}",
+  "product_short_name": "Tên sản phẩm ngắn gọn",
+  "ad_group_name": "Nhóm [Tên ngắn gọn] | ${todayStr}",
   "path1": "path-1",
   "path2": "path-2",
-  "headlines": [ ... 15 tiĂªu Ä‘á»  <= 30 kĂ½ tá»± ],
-  "descriptions": [ ... 4 mĂ´ táº£ <= 90 kĂ½ tá»± ],
-  "keywords": [ ... 15-20 tá»« khĂ³a ]
+  "headlines": [ ... 15 tiêu đề <= 30 ký tự ],
+  "descriptions": [ ... 4 mô tả <= 90 ký tự ],
+  "keywords": [ ... 15-20 từ khóa ]
 }
 `;
 
@@ -421,10 +436,10 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
         }
         aiData = JSON.parse(rawText);
     } catch (e) {
-        return { success: false, error: `Lá»—i gá» i Gemini AI: ${e.message}` };
+        return { success: false, error: `Lỗi gọi Gemini AI: ${e.message}` };
     }
 
-    // 2. Háº­u kiá»ƒm nghiĂªm ngáº·t Ä‘á»™ dĂ i kĂ½ tá»± Google Ads
+    // Hậu kiểm độ dài ký tự chuẩn Google Ads
     const path1 = smartTruncate(aiData.path1 || 'chinh-hang', 15).replace(/\s+/g, '-').toLowerCase();
     const path2 = smartTruncate(aiData.path2 || 'gia-tot', 15).replace(/\s+/g, '-').toLowerCase();
 
@@ -441,13 +456,13 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
 
     const fallbackH = [
         smartTruncate(`Mua ${shortName}`, 30),
-        smartTruncate(`${shortName} ChĂ­nh HĂ£ng`, 30),
-        smartTruncate("Cam Káº¿t Chuáº©n Y Khoa", 30),
-        smartTruncate("Giao HĂ ng Nhanh ToĂ n Quá»‘c", 30),
-        smartTruncate("DÆ°á»£c SÄ© TÆ° Váº¥n Táº­n TĂ¢m", 30),
-        smartTruncate("GiĂ¡ Tá»‘t Nháº¥t HĂ´m Nay", 30),
-        smartTruncate("Ä áº·t HĂ ng Ngay Nháº­n Æ¯u Ä Ă£i", 30),
-        smartTruncate("HĂ ng Chuáº©n Ä á»§ HoĂ¡ Ä Æ¡n", 30)
+        smartTruncate(`${shortName} Chính Hãng`, 30),
+        smartTruncate("Cam Kết Chuẩn Y Khoa", 30),
+        smartTruncate("Giao Hàng Nhanh Toàn Quốc", 30),
+        smartTruncate("Dược Sĩ Tư Vấn Tận Tâm", 30),
+        smartTruncate("Giá Tốt Nhất Hôm Nay", 30),
+        smartTruncate("Đặt Hàng Ngay Nhận Ưu Đãi", 30),
+        smartTruncate("Hàng Chuẩn Đủ Hoá Đơn", 30)
     ];
     for (const fb of fallbackH) {
         if (validHeadlines.length >= 15) break;
@@ -467,10 +482,10 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
         }
     }
     const fallbackD = [
-        smartTruncate(`PhĂ¢n phá»‘i ${shortName} chuáº©n chĂ­nh hĂ£ng. Ä á»™i ngÅ© dÆ°á»£c sÄ© tÆ° váº¥n táº­n tĂ¬nh.`, 90),
-        smartTruncate("Ä áº·t hĂ ng online nhanh chĂ³ng, kiá»ƒm tra hĂ ng trÆ°á»›c khi thanh toĂ¡n. Mua ngay!", 90),
-        smartTruncate("Sáº£n pháº©m an toĂ n, rĂµ nguá»“n gá»‘c xuáº¥t xá»©, há»— trá»£ cáº£i thiá»‡n lĂ n da hiá»‡u quáº£.", 90),
-        smartTruncate("Giao hĂ ng táº­n nÆ¡i toĂ n quá»‘c, há»— trá»£ 24/7. Xem chi tiáº¿t vĂ  Ä‘áº·t hĂ ng táº¡i Ä‘Ă¢y!", 90)
+        smartTruncate(`Phân phối ${shortName} chuẩn chính hãng. Đội ngũ dược sĩ tư vấn tận tình.`, 90),
+        smartTruncate("Đặt hàng online nhanh chóng, kiểm tra hàng trước khi thanh toán. Mua ngay!", 90),
+        smartTruncate("Sản phẩm an toàn, rõ nguồn gốc xuất xứ, hỗ trợ cải thiện làn da hiệu quả.", 90),
+        smartTruncate("Giao hàng tận nơi toàn quốc, hỗ trợ 24/7. Xem chi tiết và đặt hàng tại đây!", 90)
     ];
     for (const fd of fallbackD) {
         if (validDescriptions.length >= 4) break;
@@ -480,8 +495,8 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
         }
     }
 
-    let adGroupName = aiData.ad_group_name || `NhĂ³m ${shortName} | ${todayStr}`;
-    if (!adGroupName.startsWith('NhĂ³m ')) adGroupName = `NhĂ³m ${adGroupName}`;
+    let adGroupName = aiData.ad_group_name || `Nhóm ${shortName} | ${todayStr}`;
+    if (!adGroupName.startsWith('Nhóm ')) adGroupName = `Nhóm ${adGroupName}`;
     if (!adGroupName.includes('|')) adGroupName = `${adGroupName} | ${todayStr}`;
 
     const adData = {
@@ -497,7 +512,7 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
         images: product.images || []
     };
 
-    // 3. Táº£i hĂ¬nh áº£nh sáº£n pháº©m vĂ o thÆ° má»¥c Ä‘Æ°á»£c chá» n
+    // Tải ảnh sản phẩm về thư mục
     const downloadedImages = [];
     try {
         if (!fs.existsSync(targetProductImgDir)) {
@@ -522,14 +537,14 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
                     });
                 }
             } catch (err) {
-                console.warn(`Lá»—i táº£i áº£nh ${imgUrl}:`, err.message);
+                console.warn(`Lỗi tải ảnh ${imgUrl}:`, err.message);
             }
         }
     } catch (e) {
-        console.error('Lá»—i táº¡o thÆ° má»¥c áº£nh:', e);
+        console.error('Lỗi tạo thư mục ảnh:', e);
     }
 
-    // 4. Xuáº¥t File CSV All-in-One chuáº©n Google Ads
+    // Xuất file CSV All-in-One chuẩn Google Ads Bulk Upload
     const outputDir = getDefaultOutputDir();
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
@@ -539,7 +554,6 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
     const csvFileName = `google_ads_all_in_one_${cleanFileTag}.csv`;
     const csvFilePath = path.join(outputDir, csvFileName);
 
-    // CSV Headers
     const headers = [
         'Campaign', 'Ad group', 'Campaign status', 'Ad group status', 'Max CPC',
         'Ad type', 'Final URL', 'Path 1', 'Path 2'
@@ -560,7 +574,7 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
     const csvRows = [];
     csvRows.push(headers.map(escapeCsv).join(','));
 
-    // DĂ²ng 1: Ad Group
+    // Dòng 1: Nhóm quảng cáo
     const rowAg = new Array(headers.length).fill('');
     rowAg[0] = effectiveCampaignName;
     rowAg[1] = adGroupName;
@@ -569,7 +583,7 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
     rowAg[4] = effectiveMaxCpc;
     csvRows.push(rowAg.map(escapeCsv).join(','));
 
-    // DĂ²ng 2: RSA Ads
+    // Dòng 2: Mẫu RSA
     const rowAd = new Array(headers.length).fill('');
     rowAd[0] = effectiveCampaignName;
     rowAd[1] = adGroupName;
@@ -585,7 +599,7 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
     }
     csvRows.push(rowAd.map(escapeCsv).join(','));
 
-    // DĂ²ng 3..N: Keywords
+    // Dòng 3..N: Từ khóa
     for (const kwRaw of adData.keywords) {
         const cleanKw = kwRaw.trim();
         let criterion = 'Broad';
@@ -607,7 +621,7 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
         csvRows.push(rowKw.map(escapeCsv).join(','));
     }
 
-    // Ghi CSV vá»›i UTF-8 BOM (\uFEFF) Ä‘á»ƒ Excel Windows khĂ´ng lá»—i font tiáº¿ng Viá»‡t
+    // UTF-8 BOM (\uFEFF) để Excel hiển thị tiếng Việt chính xác
     const csvContent = '\uFEFF' + csvRows.join('\r\n');
     fs.writeFileSync(csvFilePath, csvContent, 'utf8');
 
@@ -622,10 +636,10 @@ QUY Táº®C Báº®T BUá»˜C TRĂŠN GOOGLE ADS (VI PHáº M Sáº¼ Bá»Š 
     };
 });
 
-// ==========================================
-// KHá»žI CHáº Y á»¨NG Dá»¤NG
-// ==========================================
+// Khởi chạy ứng dụng
 app.whenReady().then(() => {
+    // Đảm bảo tạo file config ban đầu với đầy đủ thông tin nội bộ
+    readConfig();
     createWindow();
 
     app.on('activate', () => {

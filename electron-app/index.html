@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Google Ads Campaign Auto-Generator Pro</title>
+  <!-- Google Fonts chuẩn tiếng Việt Be Vietnam Pro -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -53,7 +57,7 @@
     <aside class="settings-sidebar" id="sidebar_settings">
       <div class="sidebar-header">
         <h2>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
           Cấu Hình Hệ Thống
         </h2>
         <button class="btn-input-action" id="btn_close_sidebar" title="Thu gọn panel">✕</button>
@@ -64,7 +68,7 @@
         <!-- 1. Cấu hình Gemini AI -->
         <div class="config-section">
           <div class="config-section-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
             Google Gemini AI
           </div>
 
@@ -83,7 +87,6 @@
               <option value="gemini-2.5-pro">gemini-2.5-pro (Chuyên sâu)</option>
               <option value="gemini-1.5-flash">gemini-1.5-flash</option>
               <option value="gemini-1.5-pro">gemini-1.5-pro</option>
-              <option value="gemini-3.8-flash">gemini-3.8-flash (Tùy chọn)</option>
             </select>
           </div>
 
@@ -96,7 +99,7 @@
         <!-- 2. Cấu hình WooCommerce Website -->
         <div class="config-section">
           <div class="config-section-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
             Website WooCommerce
           </div>
 
@@ -127,7 +130,7 @@
         <!-- 3. Thư mục Lưu Trữ & Giá Thầu Mặc Định -->
         <div class="config-section">
           <div class="config-section-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
             Lưu Trữ & Giá Thầu
           </div>
 
@@ -142,8 +145,8 @@
                 ↗ Mở
               </button>
             </div>
-            <p style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">
-              * Ứng dụng sẽ tự động tạo thư mục con mang tên sản phẩm bên trong thư mục này.
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+              * Ứng dụng tự động tạo thư mục con trùng tên sản phẩm bên trong thư mục này.
             </p>
           </div>
 
@@ -199,7 +202,7 @@
       <section class="campaign-bar">
         <div class="form-group">
           <label class="form-label">Tên chiến dịch Google Ads</label>
-          <input type="text" id="input_campaign_name" class="form-input" placeholder="Chiến dịch sản phẩm Web Derma | 22/10">
+          <input type="text" id="input_campaign_name" class="form-input" placeholder="Chiến dịch sản phẩm Web Derma">
         </div>
 
         <div class="form-group">
@@ -215,7 +218,7 @@
 
       <!-- 4. Terminal Progress Box -->
       <div class="terminal-box" id="terminal_box">
-        <div id="terminal_text">● Trạng thái: Sẵn sàng làm việc. Chọn sản phẩm và bấm "Tạo chiến dịch".</div>
+        <div id="terminal_text">● Trạng thái: Sẵn sàng làm việc. Tìm và chọn sản phẩm để tạo chiến dịch.</div>
         <div id="terminal_time">--:--:--</div>
       </div>
 
@@ -277,7 +280,7 @@
         <!-- Tab 2: Headlines -->
         <div class="tab-pane" id="tab_headlines">
           <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 12px; color: var(--text-muted);">Tất cả 15 tiêu đề đã được hậu kiểm không quá 30 ký tự chuẩn Google Ads:</span>
+            <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Tất cả 15 tiêu đề đã được hậu kiểm không quá 30 ký tự chuẩn Google Ads:</span>
             <button class="btn-header" id="btn_copy_all_headlines">📋 Copy Tất Cả Tiêu Đề</button>
           </div>
           <div class="assets-grid" id="grid_headlines"></div>
@@ -286,7 +289,7 @@
         <!-- Tab 3: Descriptions -->
         <div class="tab-pane" id="tab_descriptions">
           <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 12px; color: var(--text-muted);">Tất cả 4 đoạn mô tả đã được hậu kiểm không quá 90 ký tự:</span>
+            <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Tất cả 4 đoạn mô tả đã được hậu kiểm không quá 90 ký tự:</span>
             <button class="btn-header" id="btn_copy_all_descriptions">📋 Copy Tất Cả Mô Tả</button>
           </div>
           <div class="assets-grid" id="grid_descriptions"></div>
@@ -295,7 +298,7 @@
         <!-- Tab 4: Keywords -->
         <div class="tab-pane" id="tab_keywords">
           <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 12px; color: var(--text-muted);">Từ khóa tìm kiếm chuyển đổi cao (Phrase match & Exact match):</span>
+            <span style="font-size: 12px; color: var(--text-secondary); font-weight: 500;">Từ khóa tìm kiếm chuyển đổi cao (Phrase match & Exact match):</span>
             <button class="btn-header" id="btn_copy_all_keywords">📋 Copy Tất Cả Từ Khóa</button>
           </div>
           <div class="assets-grid" id="grid_keywords"></div>
@@ -303,13 +306,13 @@
 
         <!-- Tab 5: Images -->
         <div class="tab-pane" id="tab_images">
-          <div style="display: flex; justify-content: space-between; align-items: center; background: #0b1120; padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+          <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-subtle); padding: 14px 18px; border-radius: var(--radius-md); border: 1px solid var(--border-main);">
             <div>
-              <div style="font-size: 13px; font-weight: 600; color: #fff;">
-                📁 Thư mục ảnh sản phẩm: <span id="label_img_folder" style="color: #38bdf8; font-family: var(--font-mono); font-size: 12px;">--</span>
+              <div style="font-size: 13px; font-weight: 700; color: var(--text-primary);">
+                📁 Thư mục ảnh sản phẩm: <span id="label_img_folder" style="color: var(--google-blue); font-family: var(--font-mono); font-size: 12px;">--</span>
               </div>
-              <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">
-                Ảnh gốc từ WooCommerce đã được tải về máy tính và lưu trữ có tổ chức.
+              <div style="font-size: 11px; color: var(--text-muted); margin-top: 3px;">
+                Hình ảnh từ WooCommerce đã được tải về máy và lưu vào thư mục riêng mang tên sản phẩm.
               </div>
             </div>
             <button class="btn-header active" id="btn_open_current_product_images">
@@ -322,15 +325,15 @@
 
         <!-- Tab 6: CSV Export -->
         <div class="tab-pane" id="tab_csv">
-          <div style="background: #0b1120; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px; display: flex; flex-direction: column; gap: 16px; max-width: 600px;">
+          <div style="background: var(--bg-subtle); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; gap: 16px; max-width: 650px;">
             <div>
-              <h4 style="font-size: 14px; font-weight: 700; color: #fff;">File CSV All-in-One chuẩn Google Ads Bulk Upload</h4>
-              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-                File chứa đầy đủ cấu trúc: Tạo Nhóm (Ad Group), Quảng cáo thích ứng (RSA), và Danh sách Từ khóa. Định dạng UTF-8 BOM sẵn sàng nạp trực tiếp vào Google Ads Web hoặc Google Ads Editor.
+              <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary);">File CSV All-in-One chuẩn Google Ads Bulk Upload</h4>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5;">
+                File chứa đầy đủ: Khởi tạo Nhóm (Ad Group), Quảng cáo thích ứng (RSA) và Danh sách Từ khóa. Định dạng UTF-8 BOM sẵn sàng nạp trực tiếp vào Google Ads Web hoặc Google Ads Editor mà không bị lỗi font tiếng Việt.
               </p>
             </div>
 
-            <div style="font-family: var(--font-mono); font-size: 12px; background: #060911; padding: 10px 14px; border-radius: 6px; border: 1px solid #1a253c; color: #34d399;" id="label_csv_file_path">
+            <div style="font-family: var(--font-mono); font-size: 12px; background: #ffffff; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-strong); color: var(--green-text); font-weight: 600;" id="label_csv_file_path">
               --
             </div>
 

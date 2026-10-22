@@ -4,7 +4,7 @@ let currentSelectedProduct = null;
 let lastGeneratedResult = null;
 let searchDebounceTimer = null;
 
-// Tiá»‡n Ăch Toast Notification
+// Tiện ích Toast Thông báo
 function showToast(message, type = 'success') {
   const container = document.getElementById('toast_container');
   const toast = document.createElement('div');
@@ -21,7 +21,7 @@ function showToast(message, type = 'success') {
   }, 3500);
 }
 
-// Cáº­p nháº­t terminal log
+// Cập nhật terminal log
 function updateTerminal(msg) {
   const tText = document.getElementById('terminal_text');
   const tTime = document.getElementById('terminal_time');
@@ -32,14 +32,14 @@ function updateTerminal(msg) {
   if (tTime) tTime.innerText = timeStr;
 }
 
-// Khi á»©ng dá»¥ng khá»Ÿi Ä‘á»™ng
+// Khi ứng dụng khởi động
 document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   await loadAndApplyConfig();
   await checkSystemHealth();
 });
 
-// 1. Náº¡p vĂ  Ä‘iá» n cáº¥u hĂ¬nh
+// 1. Nạp và điền cấu hình mặc định nội bộ
 async function loadAndApplyConfig() {
   try {
     const cfg = await window.electronAPI.getConfig();
@@ -54,18 +54,18 @@ async function loadAndApplyConfig() {
     document.getElementById('cfg_max_cpc').value = cfg.max_cpc || 2000;
     document.getElementById('cfg_default_camp_name').value = cfg.default_campaign_name || '';
 
-    // Ä iá» n giĂ¡ trá»‹ máº·c Ä‘á»‹nh trĂªn thanh chiáº¿n dá»‹ch chĂ­nh
+    // Điền giá trị mặc định trên thanh chiến dịch chính
     const today = new Date();
     const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-    const defCamp = cfg.default_campaign_name || `Chiáº¿n dá»‹ch sáº£n pháº©m Web Derma | ${todayStr}`;
+    const defCamp = cfg.default_campaign_name || `Chiến dịch sản phẩm Web Derma | ${todayStr}`;
     document.getElementById('input_campaign_name').value = defCamp;
     document.getElementById('input_max_cpc').value = cfg.max_cpc || 2000;
   } catch (err) {
-    console.error('Lá»—i náº¡p config:', err);
+    console.error('Lỗi nạp config:', err);
   }
 }
 
-// 2. Kiá»ƒm tra káº¿t ná»‘i há»‡ thá»‘ng ngáº§m
+// 2. Kiểm tra kết nối hệ thống ngầm
 async function checkSystemHealth() {
   // Gemini Status
   const dotGemini = document.getElementById('dot_gemini');
@@ -75,18 +75,18 @@ async function checkSystemHealth() {
       const res = await window.electronAPI.testGemini({ key: currentConfig.gemini_api_key });
       if (res.success) {
         dotGemini.className = 'status-dot active';
-        textGemini.innerText = 'Gemini: Sáºµn sĂ ng';
+        textGemini.innerText = 'Gemini: Sẵn sàng';
       } else {
         dotGemini.className = 'status-dot warning';
-        textGemini.innerText = 'Gemini: Key lá»—i';
+        textGemini.innerText = 'Gemini: Key lỗi';
       }
     } catch (e) {
       dotGemini.className = 'status-dot warning';
-      textGemini.innerText = 'Gemini: ChÆ°a káº¿t ná»‘i';
+      textGemini.innerText = 'Gemini: Chưa kết nối';
     }
   } else {
     dotGemini.className = 'status-dot warning';
-    textGemini.innerText = 'Gemini: Thiáº¿u Key';
+    textGemini.innerText = 'Gemini: Thiếu Key';
   }
 
   // WooCommerce Status
@@ -97,10 +97,10 @@ async function checkSystemHealth() {
       const resWc = await window.electronAPI.testWc({});
       if (resWc.success) {
         dotWc.className = 'status-dot active';
-        textWc.innerText = 'WooCommerce: Káº¿t ná»‘i';
+        textWc.innerText = 'WooCommerce: Kết nối';
       } else {
         dotWc.className = 'status-dot warning';
-        textWc.innerText = 'WooCommerce: Lá»—i';
+        textWc.innerText = 'WooCommerce: Lỗi kết nối';
       }
     } catch (e) {
       dotWc.className = 'status-dot warning';
@@ -108,11 +108,11 @@ async function checkSystemHealth() {
     }
   } else {
     dotWc.className = 'status-dot warning';
-    textWc.innerText = 'WooCommerce: ChÆ°a cáº¥u hĂ¬nh';
+    textWc.innerText = 'WooCommerce: Chưa cấu hình';
   }
 }
 
-// 3. Thiáº¿t láº­p toĂ n bá»™ sá»± kiá»‡n
+// 3. Thiết lập toàn bộ sự kiện giao diện
 function setupEventListeners() {
   const sidebar = document.getElementById('sidebar_settings');
   const btnToggleSidebar = document.getElementById('btn_toggle_sidebar');
@@ -136,14 +136,14 @@ function setupEventListeners() {
     input.type = input.type === 'password' ? 'text' : 'password';
   });
 
-  // Chá» n thÆ° má»¥c Windows Dialog
+  // Chọn thư mục Windows Explorer Dialog
   document.getElementById('btn_browse_folder').addEventListener('click', async () => {
     const current = document.getElementById('cfg_root_images_dir').value.trim();
-    showToast('Ä ang má»Ÿ há»™p thoáº¡i chá» n thÆ° má»¥c Windows...', 'success');
+    showToast('Đang mở hộp thoại chọn thư mục Windows...', 'success');
     const res = await window.electronAPI.selectFolder(current);
     if (res.success && res.path) {
       document.getElementById('cfg_root_images_dir').value = res.path;
-      showToast(`Ä Ă£ chá» n thÆ° má»¥c: ${res.path}`, 'success');
+      showToast(`Đã chọn thư mục: ${res.path}`, 'success');
     }
   });
 
@@ -230,7 +230,7 @@ function setupEventListeners() {
     }
 
     searchDebounceTimer = setTimeout(async () => {
-      searchDropdown.innerHTML = '<div style="padding: 12px; font-size: 12px; color: var(--text-dim); text-align: center;">Đang tìm kiếm...</div>';
+      searchDropdown.innerHTML = '<div style="padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center;">Đang tìm kiếm sản phẩm...</div>';
       searchDropdown.style.display = 'block';
 
       const res = await window.electronAPI.searchProducts(query);
@@ -239,7 +239,7 @@ function setupEventListeners() {
         res.products.forEach(p => {
           const item = document.createElement('div');
           item.className = 'dropdown-item';
-          const imgTag = p.image ? `<img src="${p.image}" alt="">` : `<div style="width:40px;height:40px;background:#1e293b;border-radius:6px;"></div>`;
+          const imgTag = p.image ? `<img src="${p.image}" alt="">` : `<div style="width:44px;height:44px;background:#e2e8f0;border-radius:6px;"></div>`;
           item.innerHTML = `
             ${imgTag}
             <div class="dropdown-item-info">
@@ -257,7 +257,7 @@ function setupEventListeners() {
           searchDropdown.appendChild(item);
         });
       } else {
-        searchDropdown.innerHTML = '<div style="padding: 12px; font-size: 12px; color: var(--text-dim); text-align: center;">Không tìm thấy sản phẩm phù hợp.</div>';
+        searchDropdown.innerHTML = '<div style="padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center;">Không tìm thấy sản phẩm phù hợp.</div>';
       }
     }, 280);
   });
@@ -401,7 +401,6 @@ async function generateCampaign() {
     updateTerminal(`✓ Thành công! Đã tạo quảng cáo, tải ${res.downloaded_images?.length || 0} ảnh và xuất CSV All-in-One.`);
     showToast(`Đã tạo chiến dịch thành công cho ${currentSelectedProduct.title}!`, 'success');
 
-    // Hiển thị và cập nhật kết quả
     renderResults(res);
   } catch (e) {
     showToast(`Lỗi ngoại lệ: ${e.message}`, 'error');
@@ -507,6 +506,5 @@ function renderResults(data) {
   // 6. CSV Tab
   document.getElementById('label_csv_file_path').innerText = data.csv_file_path || '--';
 
-  // Tự động cuộn xuống khu vực kết quả mượt mà
   resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
