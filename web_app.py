@@ -56,7 +56,30 @@ class GenerateRequest(BaseModel):
     max_cpc: int = 2000
 
 def _open_folder_dialog(initial_dir=""):
-    """Mở hộp thoại chọn thư mục chuẩn Windows."""
+    """Mở hộp thoại chọn thư mục chuẩn Windows (luôn nổi lên trên cùng)."""
+    clean_init = initial_dir.strip().replace('/', '\\') if initial_dir else ""
+    ps_cmd = f"""
+    Add-Type -AssemblyName System.Windows.Forms
+    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+    $dialog.Description = 'Chọn thư mục lưu hình ảnh sản phẩm'
+    $dialog.ShowNewFolderButton = $true
+    if ('{clean_init}' -ne '' -and (Test-Path '{clean_init}')) {{
+        $dialog.SelectedPath = '{clean_init}'
+    }}
+    $form = New-Object System.Windows.Forms.Form
+    $form.TopMost = $true
+    if ($dialog.ShowDialog($form) -eq [System.Windows.Forms.DialogResult]::OK) {{
+        Write-Output $dialog.SelectedPath
+    }}
+    """
+    try:
+        res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True)
+        chosen = res.stdout.strip()
+        if chosen and os.path.exists(chosen):
+            return chosen
+    except Exception as e:
+        print(f"Lỗi PowerShell folder picker: {e}")
+
     try:
         import tkinter as tk
         from tkinter import filedialog
@@ -68,7 +91,7 @@ def _open_folder_dialog(initial_dir=""):
         root.destroy()
         return folder
     except Exception as e:
-        print(f"Lỗi mở folder dialog: {e}")
+        print(f"Lỗi Tkinter folder dialog: {e}")
         return ""
 
 @app.get("/", response_class=HTMLResponse)
@@ -253,13 +276,13 @@ async def index():
                                 <input type="text" id="cfg_root_images_dir" 
                                     class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 bg-white"
                                     placeholder="D:\\Project Anti\\Auto-Google-Ads\\output\\images">
-                                <button type="button" onclick="browseFolderDialog()" title="Bấm để chọn thư mục trên máy tính"
-                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center shadow-xs flex-shrink-0 transition">
-                                    <i class="fa-regular fa-folder-open mr-1"></i> Chọn...
+                                <button type="button" onclick="browseFolderDialog()" id="btn_browse_folder" title="Bấm để chọn thư mục trên máy tính"
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center shadow-xs flex-shrink-0 transition">
+                                    <i class="fa-regular fa-folder-open mr-1.5"></i> Chọn Thư Mục
                                 </button>
-                                <button type="button" onclick="openRootFolder()" title="Mở thư mục trong Windows Explorer"
-                                    class="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs flex-shrink-0">
-                                    <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                                <button type="button" onclick="openRootFolder()" id="btn_open_root_folder" title="Mở thư mục này trong Windows Explorer"
+                                    class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center shadow-xs flex-shrink-0 transition">
+                                    <i class="fa-solid fa-arrow-up-right-from-square mr-1.5 text-amber-300"></i> Mở Thư Mục
                                 </button>
                             </div>
                             <p class="text-[10px] text-slate-500 mt-1.5 italic">
@@ -927,11 +950,13 @@ async def index():
 
         async function openFolder() {
             const target = currentResult?.images_folder || document.getElementById('cfg_root_images_dir').value.trim();
+            showToast('Đang mở thư mục ảnh trong Windows Explorer...', true);
             await fetch(`/api/open_folder?path=${encodeURIComponent(target)}`);
         }
 
         async function openRootFolder() {
             const target = document.getElementById('cfg_root_images_dir').value.trim();
+            showToast('Đang mở thư mục trong Windows Explorer...', true);
             await fetch(`/api/open_folder?path=${encodeURIComponent(target)}`);
         }
 
@@ -1099,13 +1124,19 @@ async def api_image_preview(path: str):
 async def api_open_folder(path: str = ""):
     cfg = load_config()
     target = path.strip() if path and path.strip() else cfg.get("root_images_dir", os.path.join(output_dir, "images"))
+    target = os.path.normpath(os.path.abspath(target))
+    
     if not os.path.exists(target):
         try:
             os.makedirs(target, exist_ok=True)
         except Exception:
             pass
+
     if os.path.exists(target):
-        subprocess.Popen(f'explorer "{target}"')
+        try:
+            os.startfile(target)
+        except Exception:
+            subprocess.Popen(["explorer.exe", target])
         return {"success": True, "opened": target}
     return JSONResponse(status_code=404, content={"detail": f"Thư mục không tồn tại: {target}"})
 
