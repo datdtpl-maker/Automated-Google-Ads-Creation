@@ -362,19 +362,22 @@ function setupEventListeners() {
     showToast('Đã sao chép danh sách từ khóa vào Clipboard!', 'success');
   });
 
-  document.getElementById('btn_copy_all_ad_text').addEventListener('click', () => {
-    if (!lastGeneratedResult) return;
-    const ad = lastGeneratedResult.ad_data;
-    let text = `=== CHIẾN DỊCH: ${ad.campaign_name} ===\n`;
-    text += `Nhóm quảng cáo: ${ad.ad_group_name}\n`;
-    text += `URL Đích: ${ad.final_url}\n`;
-    text += `Đường dẫn: /${ad.path1}/${ad.path2}\n\n`;
-    text += `TIÊU ĐỀ (15):\n` + ad.headlines.map((h, i) => `${i + 1}. [${h.length} ký tự] ${h}`).join('\n') + `\n\n`;
-    text += `MÔ TẢ (4):\n` + ad.descriptions.map((d, i) => `${i + 1}. [${d.length} ký tự] ${d}`).join('\n') + `\n\n`;
-    text += `TỪ KHÓA:\n` + ad.keywords.join('\n');
-    navigator.clipboard.writeText(text);
-    showToast('Đã sao chép toàn bộ văn bản chiến dịch!', 'success');
-  });
+  const copyAdTextBtn = document.getElementById('btn_copy_all_ad_text');
+  if (copyAdTextBtn) {
+    copyAdTextBtn.addEventListener('click', () => {
+      if (!lastGeneratedResult) return;
+      const ad = lastGeneratedResult.ad_data;
+      let text = `=== CHIẾN DỊCH: ${ad.campaign_name} ===\n`;
+      text += `Nhóm quảng cáo: ${ad.ad_group_name}\n`;
+      text += `URL Đích: ${ad.final_url}\n`;
+      text += `Đường dẫn: /${ad.path1}/${ad.path2}\n\n`;
+      text += `TIÊU ĐỀ (15):\n` + ad.headlines.map((h, i) => `${i + 1}. [${h.length} ký tự] ${h}`).join('\n') + `\n\n`;
+      text += `MÔ TẢ (4):\n` + ad.descriptions.map((d, i) => `${i + 1}. [${d.length} ký tự] ${d}`).join('\n') + `\n\n`;
+      text += `TỪ KHÓA:\n` + ad.keywords.join('\n');
+      navigator.clipboard.writeText(text);
+      showToast('Đã sao chép toàn bộ văn bản chiến dịch!', 'success');
+    });
+  }
 }
 
 // 4. Khi chọn một sản phẩm từ danh sách
