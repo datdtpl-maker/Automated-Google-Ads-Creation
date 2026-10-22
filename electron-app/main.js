@@ -10,7 +10,7 @@ const EMBEDDED_PASS = Buffer.from('NmxHUyBhR1hUIGU2cXggQnhPWiBnOXo3IHRjMUs=', 'b
 
 const DEFAULT_CONFIG = {
     gemini_api_key: EMBEDDED_KEY,
-    gemini_model: "gemini-2.5-flash",
+    gemini_model: "gemini-3.8-flash",
     wp_url: "https://khaihoanderma.com",
     wp_user: "admin",
     wp_app_password: EMBEDDED_PASS,
@@ -82,6 +82,12 @@ function readConfig() {
             }
             if (!config.wp_app_password || config.wp_app_password.trim() === '') {
                 config.wp_app_password = DEFAULT_CONFIG.wp_app_password;
+                needsResave = true;
+            }
+
+            // Luôn đặt mặc định mô hình là gemini-3.8-flash (loại bỏ các mô hình cũ đã ngừng hỗ trợ)
+            if (!config.gemini_model || config.gemini_model !== 'gemini-3.8-flash') {
+                config.gemini_model = 'gemini-3.8-flash';
                 needsResave = true;
             }
 
@@ -380,7 +386,7 @@ ipcMain.handle('generate-campaign', async (event, params) => {
     const cfg = readConfig();
 
     const apiKey = cfg.gemini_api_key || DEFAULT_CONFIG.gemini_api_key;
-    const model = cfg.gemini_model || 'gemini-2.5-flash';
+    const model = 'gemini-3.8-flash';
     if (!apiKey) {
         return { success: false, error: 'Thiếu Gemini API Key! Vui lòng nhập và lưu trong Cấu hình hệ thống.' };
     }

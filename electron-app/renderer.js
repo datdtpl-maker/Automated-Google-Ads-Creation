@@ -57,7 +57,7 @@ async function loadAndApplyConfig() {
     const cleanImagesDir = cleanSafeText(cfg.root_images_dir, 'D:\\Project Anti\\Auto-Google-Ads\\output\\images');
 
     document.getElementById('cfg_gemini_key').value = cfg.gemini_api_key || '';
-    if (cfg.gemini_model) document.getElementById('cfg_gemini_model').value = cfg.gemini_model;
+    document.getElementById('cfg_gemini_model').value = 'gemini-3.8-flash';
     document.getElementById('cfg_wp_url').value = cfg.wp_url || 'https://khaihoanderma.com';
     document.getElementById('cfg_wp_user').value = cfg.wp_user || 'admin';
     document.getElementById('cfg_wp_password').value = cfg.wp_app_password || '';
