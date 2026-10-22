@@ -1,7 +1,10 @@
 import os
 import sys
 import re
+import json
+import asyncio
 import subprocess
+import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -36,12 +39,37 @@ class ConfigRequest(BaseModel):
     max_cpc: int = 2000
     root_images_dir: str = ""
 
+class TestGeminiRequest(BaseModel):
+    api_key: str = ""
+    model: str = "gemini-3.8-flash"
+
+class TestWcRequest(BaseModel):
+    wp_url: str = ""
+    wp_user: str = ""
+    wp_app_password: str = ""
+
 class GenerateRequest(BaseModel):
     url: str = ""
     product_id: int = 0
     campaign_name: str = ""
     custom_images_dir: str = ""
     max_cpc: int = 2000
+
+def _open_folder_dialog(initial_dir=""):
+    """Mở hộp thoại chọn thư mục chuẩn Windows."""
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        init = initial_dir if initial_dir and os.path.exists(initial_dir) else None
+        folder = filedialog.askdirectory(initialdir=init, title="Chọn thư mục chính lưu ảnh sản phẩm Google Ads")
+        root.destroy()
+        return folder
+    except Exception as e:
+        print(f"Lỗi mở folder dialog: {e}")
+        return ""
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
@@ -57,173 +85,224 @@ async def index():
     <style>
         .char-badge {
             font-size: 0.72rem;
-            padding: 2px 6px;
+            padding: 2px 7px;
             border-radius: 9999px;
             font-weight: 600;
         }
         .char-safe { background-color: #DEF7EC; color: #03543F; }
         .char-warn { background-color: #FEF08A; color: #713F12; }
-        /* Custom scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #F1F5F9; }
         ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+        .glass-header {
+            background: rgba(79, 70, 229, 0.95);
+            backdrop-filter: blur(8px);
+        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col font-sans">
-    <!-- Header -->
-    <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-40">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <i class="fa-brands fa-google text-2xl text-amber-300"></i>
+    <!-- Top App Navigation -->
+    <header class="glass-header text-white shadow-md sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3.5">
+                <div class="w-9 h-9 bg-white/10 rounded-xl flex items-center justify-center border border-white/20 shadow-inner">
+                    <i class="fa-brands fa-google text-xl text-amber-300"></i>
+                </div>
                 <div>
-                    <h1 class="text-base sm:text-lg font-bold leading-tight">Google Ads Campaign Auto-Generator</h1>
+                    <h1 class="text-base sm:text-lg font-extrabold tracking-tight flex items-center gap-2">
+                        <span>Google Ads Campaign Auto-Generator</span>
+                    </h1>
                     <div class="text-[11px] text-indigo-200 flex items-center gap-2">
-                        <span>Gemini 3.8 Flash &times; WooCommerce API</span>
+                        <span>Gemini 3.8 Flash &times; WooCommerce REST API</span>
                         <span class="inline-block w-1 h-1 rounded-full bg-indigo-300"></span>
-                        <span class="text-emerald-300 font-medium">Native Windows Application</span>
+                        <span class="text-emerald-300 font-semibold">Native Windows Edition</span>
                     </div>
                 </div>
             </div>
-            <div class="flex items-center space-x-3">
-                <span id="conn_badge" class="text-xs bg-emerald-500/20 text-emerald-100 border border-emerald-400/30 px-3 py-1 rounded-full font-medium flex items-center">
-                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> Sẵn sàng hoạt động
+
+            <!-- Action Controls in Header -->
+            <div class="flex items-center space-x-2.5">
+                <!-- Toggle Settings Button -->
+                <button onclick="toggleConfigPanel()" id="btn_toggle_config" 
+                    class="bg-indigo-700/80 hover:bg-indigo-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center transition shadow-sm border border-indigo-400/30">
+                    <i class="fa-solid fa-sliders mr-2 text-amber-300 text-sm"></i>
+                    <span id="btn_toggle_text">Ẩn Cấu Hình</span>
+                </button>
+
+                <!-- Status Badge -->
+                <span id="conn_badge" class="text-xs bg-emerald-500/20 text-emerald-100 border border-emerald-400/30 px-3 py-1.5 rounded-lg font-medium flex items-center">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></span> Sẵn Sàng
                 </span>
             </div>
         </div>
     </header>
 
-    <!-- Main Container: 2-Column Responsive Layout -->
+    <!-- Main Container -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full">
         <!-- Toast Notification -->
-        <div id="toast" class="hidden fixed bottom-5 right-5 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-2 border border-slate-700 transition">
+        <div id="toast" class="hidden fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-2.5 border border-slate-700 transition transform">
             <i class="fa-solid fa-circle-check text-emerald-400 text-base" id="toast_icon"></i>
-            <span id="toast_msg">Thông báo</span>
+            <span id="toast_msg" class="font-medium">Thông báo</span>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div id="layout_grid" class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
-            <!-- CỘT TRÁI: CẤU HÌNH HỆ THỐNG (Settings Column - 4 cols) -->
-            <div class="lg:col-span-4 bg-white rounded-xl shadow-sm border border-slate-200 p-5 space-y-4 sticky top-20">
+            <!-- CỘT CẤU HÌNH HỆ THỐNG (Có thể ẩn/hiện mượt mà) -->
+            <div id="config_panel" class="lg:col-span-4 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 space-y-4 transition-all duration-300">
                 <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <h2 class="text-sm font-bold text-slate-900 flex items-center">
-                        <i class="fa-solid fa-gears text-indigo-500 mr-2"></i> CẤU HÌNH HỆ THỐNG
-                    </h2>
-                    <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono font-semibold">Lưu nội bộ</span>
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-gears text-indigo-600 text-base"></i>
+                        <h2 class="text-sm font-bold text-slate-900">CẤU HÌNH HỆ THỐNG</h2>
+                    </div>
+                    <button onclick="toggleConfigPanel()" class="text-slate-400 hover:text-slate-600 text-xs px-2 py-1 rounded hover:bg-slate-100" title="Đóng bảng cấu hình">
+                        <i class="fa-solid fa-xmark text-sm"></i>
+                    </button>
                 </div>
 
-                <div class="space-y-3.5 text-xs">
-                    <!-- Gemini API Key -->
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                            <span>Khóa Gemini API Key</span>
-                            <span class="text-[10px] text-indigo-600 hover:underline cursor-pointer" onclick="openGeminiDoc()">Lấy key</span>
-                        </label>
-                        <div class="relative">
-                            <input type="password" id="cfg_gemini_api_key" 
-                                class="w-full pl-3 pr-9 py-2 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                                placeholder="AQ.Ab8RN...">
-                            <button type="button" onclick="togglePasswordVisibility('cfg_gemini_api_key', this)" 
-                                class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">
-                                <i class="fa-regular fa-eye text-xs"></i>
-                            </button>
+                <div class="space-y-4 text-xs">
+                    <!-- SECTION 1: GEMINI AI -->
+                    <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-800 flex items-center">
+                                <i class="fa-solid fa-microchip text-indigo-500 mr-1.5"></i> Google Gemini AI
+                            </span>
+                            <span class="text-[10px] text-indigo-600 hover:underline cursor-pointer" onclick="openGeminiDoc()">Lấy key mới</span>
                         </div>
-                    </div>
 
-                    <!-- Gemini Model -->
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">Mô hình AI Gemini</label>
-                        <select id="cfg_gemini_model" class="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 bg-white">
-                            <option value="gemini-3.8-flash">gemini-3.8-flash (Tối ưu nhất - Siêu nhanh & Thông minh)</option>
-                            <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-                            <option value="gemini-2.5-pro">gemini-2.5-pro</option>
-                        </select>
-                    </div>
-
-                    <!-- Website URL -->
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1">Địa chỉ Website (WooCommerce URL)</label>
-                        <input type="text" id="cfg_wp_url" 
-                            class="w-full px-3 py-2 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                            placeholder="https://khaihoanderma.com">
-                    </div>
-
-                    <!-- WP User & App Password -->
-                    <div class="grid grid-cols-2 gap-2">
+                        <!-- Gemini API Key -->
                         <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Tài khoản Web</label>
-                            <input type="text" id="cfg_wp_user" 
-                                class="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500"
-                                placeholder="admin">
-                        </div>
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Mật khẩu ứng dụng</label>
                             <div class="relative">
-                                <input type="password" id="cfg_wp_app_password" 
-                                    class="w-full pl-2.5 pr-8 py-2 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="xxxx xxxx xxxx xxxx">
-                                <button type="button" onclick="togglePasswordVisibility('cfg_wp_app_password', this)" 
-                                    class="absolute right-2 top-2.5 text-slate-400 hover:text-slate-600">
+                                <input type="password" id="cfg_gemini_api_key" 
+                                    class="w-full pl-3 pr-8 py-2 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    placeholder="Dán Gemini API Key tại đây...">
+                                <button type="button" onclick="togglePasswordVisibility('cfg_gemini_api_key', this)" 
+                                    class="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600">
                                     <i class="fa-regular fa-eye text-xs"></i>
                                 </button>
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Root Images Directory -->
-                    <div>
-                        <label class="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                            <span><i class="fa-solid fa-folder-tree text-amber-500 mr-1"></i> Thư mục ảnh chính (Root Directory)</span>
-                        </label>
-                        <div class="flex items-center space-x-1.5">
-                            <input type="text" id="cfg_root_images_dir" 
-                                class="flex-1 px-3 py-2 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500"
-                                placeholder="D:\\Project Anti\\Auto-Google-Ads\\output\\images">
-                            <button type="button" onclick="openRootFolder()" title="Mở thư mục chính trên máy tính" 
-                                class="bg-slate-100 hover:bg-slate-200 border border-slate-300 px-2.5 py-2 rounded-lg text-slate-700">
-                                <i class="fa-regular fa-folder-open text-xs"></i>
+                        <!-- Model Selection & Test Button -->
+                        <div class="flex items-center space-x-2">
+                            <select id="cfg_gemini_model" class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 bg-white font-medium">
+                                <option value="gemini-3.8-flash">gemini-3.8-flash (Tối ưu nhất)</option>
+                                <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                                <option value="gemini-2.5-pro">gemini-2.5-pro</option>
+                            </select>
+                            <button type="button" onclick="testGeminiKey()" id="btn_test_gemini"
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs flex items-center shadow-xs flex-shrink-0 transition">
+                                <i class="fa-solid fa-bolt mr-1 text-amber-300"></i> Test Key
                             </button>
                         </div>
-                        <p class="text-[10px] text-slate-400 mt-1 italic">
-                            * Tool tự động tạo thư mục con theo tên sản phẩm bên trong thư mục này.
-                        </p>
+
+                        <!-- Test Gemini Result Message -->
+                        <div id="gemini_test_result" class="hidden text-[11px] p-2 rounded-lg font-medium"></div>
                     </div>
 
-                    <!-- Max CPC & Campaign Name -->
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Giá thầu CPC tối đa (VNĐ)</label>
-                            <input type="number" id="cfg_max_cpc" 
-                                class="w-full px-3 py-2 rounded-lg border border-slate-300 font-semibold text-xs focus:ring-2 focus:ring-indigo-500"
-                                value="2000" min="500" step="500">
+                    <!-- SECTION 2: WOOCOMMERCE WEBSITE -->
+                    <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-800 flex items-center">
+                                <i class="fa-solid fa-store text-emerald-600 mr-1.5"></i> WooCommerce Website
+                            </span>
+                            <button type="button" onclick="testWcConnection()" id="btn_test_wc"
+                                class="text-[11px] bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold px-2 py-0.5 rounded shadow-xs">
+                                <i class="fa-solid fa-network-wired text-emerald-600 mr-1"></i> Test Kết Nối
+                            </button>
                         </div>
+
+                        <!-- Website URL -->
                         <div>
-                            <label class="block font-semibold text-slate-700 mb-1">Chiến dịch mặc định</label>
-                            <input type="text" id="cfg_default_campaign_name" 
-                                class="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500"
-                                value="Chiến dịch sản phẩm Web Derma | 22/10">
+                            <input type="text" id="cfg_wp_url" 
+                                class="w-full px-3 py-1.5 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 bg-white"
+                                placeholder="https://khaihoanderma.com">
+                        </div>
+
+                        <!-- WP User & App Password -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <input type="text" id="cfg_wp_user" 
+                                    class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    placeholder="User: admin">
+                            </div>
+                            <div class="relative">
+                                <input type="password" id="cfg_wp_app_password" 
+                                    class="w-full pl-2.5 pr-7 py-1.5 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    placeholder="Mật khẩu ứng dụng">
+                                <button type="button" onclick="togglePasswordVisibility('cfg_wp_app_password', this)" 
+                                    class="absolute right-2 top-2 text-slate-400 hover:text-slate-600">
+                                    <i class="fa-regular fa-eye text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Test WC Result Message -->
+                        <div id="wc_test_result" class="hidden text-[11px] p-2 rounded-lg font-medium"></div>
+                    </div>
+
+                    <!-- SECTION 3: THƯ MỤC ẢNH & THIẾT LẬP GIÁ THẦU -->
+                    <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
+                        <span class="font-bold text-slate-800 flex items-center">
+                            <i class="fa-solid fa-folder-tree text-amber-500 mr-1.5"></i> Thư Mục Ảnh Chính (Root Folder)
+                        </span>
+
+                        <!-- Root Images Directory with BROWSE Button -->
+                        <div>
+                            <div class="flex items-center space-x-1.5">
+                                <input type="text" id="cfg_root_images_dir" 
+                                    class="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 font-mono text-xs focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    placeholder="D:\\Project Anti\\Auto-Google-Ads\\output\\images">
+                                <button type="button" onclick="browseFolderDialog()" title="Bấm để chọn thư mục trên máy tính"
+                                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center shadow-xs flex-shrink-0 transition">
+                                    <i class="fa-regular fa-folder-open mr-1"></i> Chọn...
+                                </button>
+                                <button type="button" onclick="openRootFolder()" title="Mở thư mục trong Windows Explorer"
+                                    class="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 px-2.5 py-1.5 rounded-lg text-xs flex-shrink-0">
+                                    <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-1.5 italic">
+                                * Tool sẽ tự động tạo thư mục con theo tên sản phẩm bên trong thư mục này.
+                            </p>
+                        </div>
+
+                        <!-- Max CPC & Campaign Name -->
+                        <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200">
+                            <div>
+                                <label class="block font-semibold text-slate-700 mb-1">Max CPC (VNĐ)</label>
+                                <input type="number" id="cfg_max_cpc" 
+                                    class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 font-semibold text-xs focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    value="2000" min="500" step="500">
+                            </div>
+                            <div>
+                                <label class="block font-semibold text-slate-700 mb-1">Tên Chiến Dịch Mặc Định</label>
+                                <input type="text" id="cfg_default_campaign_name" 
+                                    class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 bg-white"
+                                    value="Chiến dịch sản phẩm Web Derma | 22/10">
+                            </div>
                         </div>
                     </div>
 
                     <!-- Nút Lưu Cấu Hình Nội Bộ -->
-                    <div class="pt-2">
+                    <div class="pt-1">
                         <button type="button" onclick="saveSystemConfig()" id="btn_save_config"
-                            class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-lg text-xs flex items-center justify-center shadow transition duration-150">
+                            class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center shadow-md transition duration-150">
                             <i class="fa-solid fa-floppy-disk mr-2 text-emerald-400"></i> LƯU CẤU HÌNH NỘI BỘ VÀO MÁY
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- CỘT PHẢI: KHÔNG GIAN LÀM VIỆC TẠO QUẢNG CÁO (8 cols) -->
-            <div class="lg:col-span-8 space-y-6">
+            <!-- CỘT KHÔNG GIAN LÀM VIỆC TẠO QUẢNG CÁO (Tự động mở rộng full width khi ẩn cấu hình) -->
+            <div id="workspace_panel" class="lg:col-span-8 space-y-6 transition-all duration-300">
                 <!-- Card Input Sản Phẩm -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                     <div class="flex items-center justify-between mb-2">
                         <h2 class="text-base font-bold text-slate-900 flex items-center">
-                            <i class="fa-solid fa-magnifying-glass text-indigo-500 mr-2"></i> Chọn Sản Phẩm Để Lên Chiến Dịch Google Ads
+                            <i class="fa-solid fa-magnifying-glass text-indigo-600 mr-2"></i> Chọn Sản Phẩm Để Lên Chiến Dịch Google Ads
                         </h2>
-                        <span class="text-[11px] text-slate-500">Dữ liệu lấy tự động từ Web</span>
+                        <span class="text-[11px] bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full font-medium">Đồng bộ tự động</span>
                     </div>
                     <p class="text-xs text-slate-500 mb-4">Gõ tên sản phẩm vào ô tìm kiếm &rarr; chọn từ danh sách gợi ý &rarr; bấm Tạo Quảng Cáo.</p>
 
@@ -234,7 +313,7 @@ async def index():
                             <div class="relative">
                                 <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400"></i>
                                 <input type="text" id="product_search_input" oninput="onSearchInput(this.value)" onfocus="onSearchFocus()"
-                                    class="w-full pl-10 pr-10 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-medium shadow-sm"
+                                    class="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-medium shadow-xs"
                                     placeholder="Gõ tên sản phẩm... ví dụ: Lozivate, Aze Fox, Munderm, kem bôi..." autocomplete="off">
                                 <button id="btn_clear_search" onclick="clearSearch()" class="hidden absolute right-3.5 top-3 text-slate-400 hover:text-slate-600">
                                     <i class="fa-solid fa-circle-xmark text-lg"></i>
@@ -247,32 +326,32 @@ async def index():
                         </div>
 
                         <!-- Selected Product Banner (Visible when selected) -->
-                        <div id="selected_product_card" class="hidden bg-indigo-50 border border-indigo-200 rounded-xl p-3.5 flex items-center justify-between">
+                        <div id="selected_product_card" class="hidden bg-indigo-50/70 border border-indigo-200 rounded-xl p-3.5 flex items-center justify-between">
                             <div class="flex items-center space-x-3.5">
-                                <img id="selected_thumb" src="" class="w-14 h-14 rounded-lg object-cover border border-indigo-300 bg-white flex-shrink-0">
+                                <img id="selected_thumb" src="" class="w-14 h-14 rounded-lg object-cover border border-indigo-200 bg-white flex-shrink-0 shadow-xs">
                                 <div>
                                     <span class="text-[10px] bg-indigo-200 text-indigo-900 font-bold px-2 py-0.5 rounded uppercase tracking-wider">Đã chọn sản phẩm</span>
                                     <h4 id="selected_title" class="text-sm font-bold text-slate-900 mt-0.5"></h4>
                                     <span id="selected_price" class="text-xs text-indigo-700 font-semibold"></span>
                                 </div>
                             </div>
-                            <button onclick="clearSelectedProduct()" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs px-3 py-1.5 rounded-lg font-medium shadow-sm">
+                            <button onclick="clearSelectedProduct()" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs px-3 py-1.5 rounded-lg font-medium shadow-xs">
                                 <i class="fa-solid fa-rotate-left mr-1"></i> Đổi sản phẩm
                             </button>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div class="md:col-span-2">
-                                <label class="block text-xs font-semibold text-slate-600 mb-1">LINK SẢN PHẨM (TỰ ĐIỀN HOẶC DÁN LINK TÙY Ý)</label>
+                                <label class="block text-xs font-semibold text-slate-600 mb-1">LINK SẢN PHẨM (TỰ ĐIỀN HOẶC DÁN TÙY Ý)</label>
                                 <input type="text" id="product_url" 
-                                    class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-xs font-mono bg-slate-50 text-slate-700"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-xs font-mono bg-slate-50 text-slate-700"
                                     placeholder="https://khaihoanderma.com/product/..." 
                                     value="https://khaihoanderma.com/product/lozivate-mf-30g-thuoc-mo-boi-da-day-sung-bong-vay/">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-600 mb-1">TÊN CHIẾN DỊCH GOOGLE ADS</label>
                                 <input type="text" id="campaign_name" 
-                                    class="w-full px-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-xs font-medium"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-xs font-medium"
                                     value="Chiến dịch sản phẩm Web Derma | 22/10">
                             </div>
                         </div>
@@ -283,23 +362,23 @@ async def index():
                             <i class="fa-solid fa-circle-check text-emerald-500 mr-1.5"></i> Mặc định <strong>CPC: 2.000đ</strong> &bull; Tải ảnh gốc &bull; Gemini 3.8 Flash sinh 15 Tiêu đề & 4 Mô tả
                         </span>
                         <button onclick="generateAds()" id="btn_submit"
-                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-6 py-2.5 rounded-lg text-sm flex items-center shadow transition duration-150">
+                            class="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold px-6 py-2.5 rounded-xl text-sm flex items-center shadow-md transition duration-150 transform hover:-translate-y-0.5">
                             <i class="fa-solid fa-bolt mr-2 text-amber-300"></i> Tạo Quảng Cáo Ngay
                         </button>
                     </div>
                 </div>
 
                 <!-- Loading Indicator -->
-                <div id="loading" class="hidden text-center py-12 bg-white rounded-xl border border-slate-200">
-                    <div class="inline-block animate-spin rounded-full h-10 w-10 border-4 border-indigo-600 border-t-transparent"></div>
-                    <p class="mt-4 text-sm font-medium text-slate-700">Đang đồng bộ WooCommerce, tải ảnh gốc vào thư mục con và gọi Gemini 3.8 Flash xử lý...</p>
-                    <p class="text-xs text-slate-400 mt-1">Quá trình này thường mất khoảng 5-10 giây.</p>
+                <div id="loading" class="hidden text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                    <div class="inline-block animate-spin rounded-full h-11 w-11 border-4 border-indigo-600 border-t-transparent"></div>
+                    <p class="mt-4 text-sm font-semibold text-slate-800">Đang đồng bộ WooCommerce, tải ảnh gốc vào thư mục con và gọi Gemini 3.8 Flash xử lý...</p>
+                    <p class="text-xs text-slate-400 mt-1">Quá trình này thường mất khoảng 5-8 giây.</p>
                 </div>
 
                 <!-- Result Container -->
                 <div id="result_area" class="hidden space-y-6">
                     <!-- Action Bar & Meta -->
-                    <div class="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4">
+                    <div class="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4 shadow-xs">
                         <div>
                             <span class="text-xs font-semibold text-indigo-600 uppercase tracking-wider">Cấu trúc Google Ads đã sinh (CPC: 2.000đ)</span>
                             <h3 class="text-lg font-bold text-slate-900 mt-1 flex items-center" id="res_ad_group"></h3>
@@ -309,35 +388,35 @@ async def index():
                             </p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
-                            <button onclick="downloadFile('all_in_one_csv')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold flex items-center shadow-lg transition transform hover:-translate-y-0.5">
+                            <button onclick="downloadFile('all_in_one_csv')" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center shadow-lg transition transform hover:-translate-y-0.5">
                                 <i class="fa-solid fa-file-csv mr-2 text-base text-amber-300"></i> ⭐ TẢI 1 FILE CSV NẠP GOOGLE ADS (ALL-IN-ONE)
                             </button>
-                            <button onclick="openFolder()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-lg text-xs font-bold flex items-center shadow transition">
+                            <button onclick="openFolder()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center shadow-md transition">
                                 <i class="fa-solid fa-folder-open mr-2 text-sm text-indigo-200"></i> 📂 MỞ THƯ MỤC ẢNH VỪA TẢI
                             </button>
-                            <button onclick="copyAllText()" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-lg text-xs font-medium flex items-center shadow-sm">
+                            <button onclick="copyAllText()" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 px-3 py-2 rounded-xl text-xs font-medium flex items-center shadow-xs">
                                 <i class="fa-solid fa-copy mr-1.5 text-slate-500"></i> Copy Text
                             </button>
                         </div>
                     </div>
 
                     <!-- 3-Step Guide for Google Ads Web Upload -->
-                    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-xs text-emerald-950 shadow-sm">
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-xs text-emerald-950 shadow-xs">
                         <div class="font-bold text-emerald-800 text-sm mb-2 flex items-center">
                             <i class="fa-solid fa-circle-check text-emerald-600 mr-2 text-base"></i> Quy trình 3 bước nạp nhanh trực tiếp trên Google Ads Web (Không cần app Editor):
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-                            <div class="bg-white p-3 rounded-lg border border-emerald-100 shadow-xs">
+                            <div class="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-xs">
                                 <span class="inline-block bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[11px] mb-1">Bước 1</span>
                                 <p class="font-semibold text-slate-800">Tải File CSV All-in-One</p>
                                 <p class="text-slate-600 mt-1">Bấm nút xanh lá <strong>TẢI 1 FILE CSV NẠP GOOGLE ADS</strong>. File đã tích hợp sẵn Nhóm (Ad Group), Quảng cáo RSA 15 tiêu đề/4 mô tả và Từ khóa với <strong>Max CPC: 2.000đ</strong>.</p>
                             </div>
-                            <div class="bg-white p-3 rounded-lg border border-emerald-100 shadow-xs">
+                            <div class="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-xs">
                                 <span class="inline-block bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[11px] mb-1">Bước 2</span>
                                 <p class="font-semibold text-slate-800">Tải lên Google Ads Web</p>
                                 <p class="text-slate-600 mt-1">Vào Google Ads Web &rarr; <strong>Công cụ và cài đặt</strong> &rarr; <strong>Tác vụ hàng loạt (Bulk actions)</strong> &rarr; <strong>Tải lên (Uploads)</strong> &rarr; Chọn file CSV vừa tải &rarr; Bấm <strong>Xem trước &amp; Áp dụng</strong>.</p>
                             </div>
-                            <div class="bg-white p-3 rounded-lg border border-emerald-100 shadow-xs">
+                            <div class="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-xs">
                                 <span class="inline-block bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded text-[11px] mb-1">Bước 3</span>
                                 <p class="font-semibold text-slate-800">Gán ảnh từ thư mục máy tính</p>
                                 <p class="text-slate-600 mt-1">Bấm nút <strong>📂 MỞ THƯ MỤC ẢNH VỪA TẢI</strong> &rarr; Vào Nhóm quảng cáo trên web &rarr; Mục <strong>Thành phần (Assets) &rarr; Hình ảnh</strong> &rarr; Tải ảnh từ thư mục máy lên là hoàn tất 100%!</p>
@@ -348,7 +427,7 @@ async def index():
                     <!-- Headlines & Descriptions Grid -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <!-- 15 Headlines -->
-                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
                             <div class="flex items-center justify-between mb-3 border-b pb-2">
                                 <h4 class="font-semibold text-slate-900 text-sm flex items-center">
                                     <i class="fa-solid fa-heading text-indigo-500 mr-2"></i> 15 Tiêu Đề (Tối đa 30 ký tự)
@@ -361,7 +440,7 @@ async def index():
                         <!-- 4 Descriptions & Keywords -->
                         <div class="space-y-6">
                             <!-- Descriptions -->
-                            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
                                 <div class="flex items-center justify-between mb-3 border-b pb-2">
                                     <h4 class="font-semibold text-slate-900 text-sm flex items-center">
                                         <i class="fa-solid fa-align-left text-indigo-500 mr-2"></i> 4 Đoạn Mô Tả (Tối đa 90 ký tự)
@@ -372,7 +451,7 @@ async def index():
                             </div>
 
                             <!-- Keywords -->
-                            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
                                 <div class="flex items-center justify-between mb-3 border-b pb-2">
                                     <h4 class="font-semibold text-slate-900 text-sm flex items-center">
                                         <i class="fa-solid fa-key text-amber-500 mr-2"></i> Danh Sách Từ Khóa (Keywords &bull; CPC: 2.000đ)
@@ -385,7 +464,7 @@ async def index():
                     </div>
 
                     <!-- Product Images Grid -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
                         <div class="flex items-center justify-between mb-4 border-b pb-2">
                             <div>
                                 <h4 class="font-semibold text-slate-900 text-sm flex items-center">
@@ -413,11 +492,40 @@ async def index():
         let currentResult = null;
         let selectedProductId = 0;
         let searchDebounceTimer = null;
+        let isConfigVisible = true;
 
-        // Tải cấu hình khi khởi động trang
         window.addEventListener('DOMContentLoaded', () => {
             loadSystemConfig();
+            // Khôi phục trạng thái hiển thị của Cấu hình từ localStorage
+            const savedState = localStorage.getItem('show_config_panel');
+            if (savedState === 'false') {
+                toggleConfigPanel(false);
+            }
         });
+
+        function toggleConfigPanel(forceState = null) {
+            const panel = document.getElementById('config_panel');
+            const workspace = document.getElementById('workspace_panel');
+            const btnText = document.getElementById('btn_toggle_text');
+
+            if (forceState !== null) {
+                isConfigVisible = forceState;
+            } else {
+                isConfigVisible = !isConfigVisible;
+            }
+
+            if (isConfigVisible) {
+                panel.classList.remove('hidden');
+                workspace.className = 'lg:col-span-8 space-y-6 transition-all duration-300';
+                btnText.innerText = 'Ẩn Cấu Hình';
+            } else {
+                panel.classList.add('hidden');
+                workspace.className = 'lg:col-span-12 max-w-5xl mx-auto space-y-6 transition-all duration-300';
+                btnText.innerText = 'Hiện Cấu Hình';
+            }
+
+            localStorage.setItem('show_config_panel', isConfigVisible);
+        }
 
         function showToast(msg, isSuccess = true) {
             const toast = document.getElementById('toast');
@@ -426,7 +534,7 @@ async def index():
             msgEl.innerText = msg;
             icon.className = isSuccess ? 'fa-solid fa-circle-check text-emerald-400 text-base' : 'fa-solid fa-circle-exclamation text-rose-400 text-base';
             toast.classList.remove('hidden');
-            setTimeout(() => { toast.classList.add('hidden'); }, 3000);
+            setTimeout(() => { toast.classList.add('hidden'); }, 3500);
         }
 
         function togglePasswordVisibility(inputId, btn) {
@@ -456,6 +564,99 @@ async def index():
                 document.getElementById('campaign_name').value = cfg.default_campaign_name || 'Chiến dịch sản phẩm Web Derma | 22/10';
             } catch (e) {
                 console.error('Lỗi khi tải cấu hình:', e);
+            }
+        }
+
+        async function testGeminiKey() {
+            const btn = document.getElementById('btn_test_gemini');
+            const resultBox = document.getElementById('gemini_test_result');
+            const apiKey = document.getElementById('cfg_gemini_api_key').value.trim();
+            const model = document.getElementById('cfg_gemini_model').value.trim();
+
+            if (!apiKey) {
+                alert('Vui lòng nhập Gemini API Key trước khi kiểm tra!');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Đang test...';
+            resultBox.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/test_gemini', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ api_key: apiKey, model: model })
+                });
+                const data = await res.json();
+                resultBox.classList.remove('hidden');
+
+                if (data.success) {
+                    resultBox.className = 'text-[11px] p-2.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium flex items-center';
+                    resultBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-2 text-sm flex-shrink-0"></i> <span>${data.message}</span>`;
+                } else {
+                    resultBox.className = 'text-[11px] p-2.5 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 font-medium flex items-start';
+                    resultBox.innerHTML = `<i class="fa-solid fa-circle-exclamation text-rose-600 mr-2 text-sm mt-0.5 flex-shrink-0"></i> <span>${data.message}</span>`;
+                }
+            } catch (e) {
+                resultBox.classList.remove('hidden');
+                resultBox.className = 'text-[11px] p-2 rounded-lg bg-rose-50 text-rose-800 border border-rose-200';
+                resultBox.innerText = 'Lỗi kết nối: ' + e.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-bolt mr-1 text-amber-300"></i> Test Key';
+            }
+        }
+
+        async function testWcConnection() {
+            const btn = document.getElementById('btn_test_wc');
+            const resultBox = document.getElementById('wc_test_result');
+            const wpUrl = document.getElementById('cfg_wp_url').value.trim();
+            const wpUser = document.getElementById('cfg_wp_user').value.trim();
+            const wpPass = document.getElementById('cfg_wp_app_password').value.trim();
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> Testing...';
+            resultBox.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/test_wc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wp_url: wpUrl, wp_user: wpUser, wp_app_password: wpPass })
+                });
+                const data = await res.json();
+                resultBox.classList.remove('hidden');
+
+                if (data.success) {
+                    resultBox.className = 'text-[11px] p-2.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium flex items-center';
+                    resultBox.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-2 text-sm flex-shrink-0"></i> <span>${data.message}</span>`;
+                } else {
+                    resultBox.className = 'text-[11px] p-2.5 rounded-lg bg-rose-50 text-rose-800 border border-rose-200 font-medium flex items-start';
+                    resultBox.innerHTML = `<i class="fa-solid fa-circle-exclamation text-rose-600 mr-2 text-sm mt-0.5 flex-shrink-0"></i> <span>${data.message}</span>`;
+                }
+            } catch (e) {
+                resultBox.classList.remove('hidden');
+                resultBox.className = 'text-[11px] p-2 rounded-lg bg-rose-50 text-rose-800 border border-rose-200';
+                resultBox.innerText = 'Lỗi kết nối: ' + e.message;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-network-wired text-emerald-600 mr-1"></i> Test Kết Nối';
+            }
+        }
+
+        async function browseFolderDialog() {
+            const currentPath = document.getElementById('cfg_root_images_dir').value.trim();
+            try {
+                showToast('Đang mở cửa sổ chọn thư mục Windows...', true);
+                const res = await fetch(`/api/select_folder?initial=${encodeURIComponent(currentPath)}`);
+                const data = await res.json();
+                if (data.success && data.path) {
+                    document.getElementById('cfg_root_images_dir').value = data.path;
+                    showToast('Đã chọn thư mục: ' + data.path, true);
+                }
+            } catch (e) {
+                console.error('Lỗi khi mở folder dialog:', e);
             }
         }
 
@@ -528,8 +729,8 @@ async def index():
                 item.onclick = () => selectProduct(p);
                 
                 const imgHtml = p.thumbnail 
-                    ? `<img src="${p.thumbnail}" class="w-10 h-10 object-cover rounded border border-slate-200 mr-3 flex-shrink-0">`
-                    : `<div class="w-10 h-10 bg-slate-100 rounded flex items-center justify-center mr-3 text-slate-400 flex-shrink-0"><i class="fa-solid fa-box"></i></div>`;
+                    ? `<img src="${p.thumbnail}" class="w-10 h-10 object-cover rounded-lg border border-slate-200 mr-3 flex-shrink-0">`
+                    : `<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center mr-3 text-slate-400 flex-shrink-0"><i class="fa-solid fa-box"></i></div>`;
                     
                 item.innerHTML = `
                     ${imgHtml}
@@ -644,7 +845,7 @@ async def index():
             hList.innerHTML = '';
             data.ad_data.headlines.forEach((h, idx) => {
                 const div = document.createElement('div');
-                div.className = 'flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs hover:bg-slate-100 transition';
+                div.className = 'flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs hover:bg-slate-100 transition';
                 div.innerHTML = `
                     <div class="flex items-center space-x-2 truncate">
                         <span class="font-bold text-slate-400 w-5">${idx + 1}.</span>
@@ -665,7 +866,7 @@ async def index():
             dList.innerHTML = '';
             data.ad_data.descriptions.forEach((d, idx) => {
                 const div = document.createElement('div');
-                div.className = 'p-2.5 rounded-lg bg-slate-50 border border-slate-100 text-xs hover:bg-slate-100 transition';
+                div.className = 'p-2.5 rounded-xl bg-slate-50 border border-slate-100 text-xs hover:bg-slate-100 transition';
                 div.innerHTML = `
                     <div class="flex items-center justify-between mb-1">
                         <span class="font-bold text-slate-500">Mô tả ${idx + 1}</span>
@@ -686,7 +887,7 @@ async def index():
             kwCloud.innerHTML = '';
             data.ad_data.keywords.forEach(kw => {
                 const span = document.createElement('span');
-                span.className = 'bg-slate-100 border border-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-md font-mono';
+                span.className = 'bg-slate-100 border border-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded-lg font-mono';
                 span.innerText = kw;
                 kwCloud.appendChild(span);
             });
@@ -699,11 +900,11 @@ async def index():
                 const filename = img.local_path.split('\\\\').pop().split('/').pop();
                 
                 const div = document.createElement('div');
-                div.className = 'border rounded-lg overflow-hidden bg-slate-50 text-center text-xs p-1 shadow-xs hover:shadow transition';
+                div.className = 'border rounded-xl overflow-hidden bg-slate-50 text-center text-xs p-1 shadow-xs hover:shadow-md transition';
                 div.innerHTML = `
-                    <img src="${previewUrl}" class="w-full h-24 object-cover rounded mb-1 bg-white">
-                    <span class="text-[10px] text-slate-500 block truncate" title="${filename}">${filename}</span>
-                    <span class="text-[10px] font-semibold text-indigo-600">${img.width}x${img.height} (${img.type})</span>
+                    <img src="${previewUrl}" class="w-full h-24 object-cover rounded-lg mb-1 bg-white">
+                    <span class="text-[10px] text-slate-500 block truncate font-medium" title="${filename}">${filename}</span>
+                    <span class="text-[10px] font-bold text-indigo-600">${img.width}x${img.height} (${img.type})</span>
                 `;
                 imgGrid.appendChild(div);
             });
@@ -774,6 +975,61 @@ async def api_save_config(req: ConfigRequest):
         "root_images_dir": req.root_images_dir
     })
     return {"success": True, "config": updated}
+
+@app.post("/api/test_gemini")
+async def api_test_gemini(req: TestGeminiRequest):
+    cfg = load_config()
+    key = req.api_key.strip() or cfg.get("gemini_api_key", "")
+    model = req.model.strip() or cfg.get("gemini_model", "gemini-3.8-flash")
+    if not key:
+        return JSONResponse(status_code=400, content={"success": False, "message": "Vui lòng nhập Gemini API Key!"})
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+    headers = {"Content-Type": "application/json"}
+    payload = {"contents": [{"parts": [{"text": "Ping"}]}]}
+    try:
+        res = requests.post(url, headers=headers, json=payload, timeout=10)
+        if res.status_code == 200:
+            return {"success": True, "message": f"API Key hợp lệ! Đã kết nối với mô hình {model} thành công."}
+        else:
+            err_detail = "Lỗi xác thực"
+            try:
+                err_detail = res.json().get("error", {}).get("message", res.text[:200])
+            except Exception:
+                err_detail = res.text[:200]
+            return {"success": False, "message": f"Lỗi ({res.status_code}): {err_detail}"}
+    except Exception as e:
+        return {"success": False, "message": f"Không thể kết nối Google API: {str(e)}"}
+
+@app.post("/api/test_wc")
+async def api_test_wc(req: TestWcRequest):
+    from requests.auth import HTTPBasicAuth
+    cfg = load_config()
+    url = req.wp_url.strip().rstrip("/") or cfg.get("wp_url", "").rstrip("/")
+    user = req.wp_user.strip() or cfg.get("wp_user", "")
+    pwd = req.wp_app_password.strip() or cfg.get("wp_app_password", "")
+
+    if not url:
+        return JSONResponse(status_code=400, content={"success": False, "message": "Vui lòng nhập địa chỉ Website!"})
+    
+    endpoint = f"{url}/wp-json/wc/v3/products?per_page=1"
+    auth = HTTPBasicAuth(user, pwd)
+    try:
+        res = requests.get(endpoint, auth=auth, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+        if res.status_code == 200:
+            return {"success": True, "message": f"Kết nối website WooCommerce thành công! (HTTP {res.status_code})"}
+        else:
+            return {"success": False, "message": f"Lỗi ({res.status_code}): {res.text[:150]}"}
+    except Exception as e:
+        return {"success": False, "message": f"Không thể kết nối Website: {str(e)}"}
+
+@app.get("/api/select_folder")
+async def api_select_folder(initial: str = ""):
+    chosen = await asyncio.to_thread(_open_folder_dialog, initial)
+    if chosen:
+        norm = os.path.normpath(chosen)
+        return {"success": True, "path": norm}
+    return {"success": False, "cancelled": True}
 
 @app.get("/api/products/search")
 async def api_search_products(q: str = ""):
