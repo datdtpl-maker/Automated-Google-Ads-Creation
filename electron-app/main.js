@@ -18,6 +18,7 @@ const DEFAULT_CONFIG = {
     max_cpc: 2000,
     daily_budget: 50000,
     campaign_mode: "separate",
+    campaign_prefix: "Chiến dịch SP - ",
     root_images_dir: "D:\\Project Anti\\Auto-Google-Ads\\output\\images"
 };
 
@@ -401,7 +402,7 @@ function escapeCsv(val) {
 }
 
 // Hàm xử lý từng sản phẩm đơn lẻ (gọi AI, tải ảnh, tạo dòng CSV)
-async function processSingleProduct(product, { apiKey, model, campaignMode = 'separate', effectiveCampaignName, dailyBudget = 50000, effectiveMaxCpc, rootImgDir, todayStr }) {
+async function processSingleProduct(product, { apiKey, model, campaignMode = 'separate', campaignPrefix = 'Chiến dịch SP - ', effectiveCampaignName, dailyBudget = 50000, effectiveMaxCpc, rootImgDir, todayStr }) {
     const cleanProdName = sanitizeFolderName(product.title || 'san_pham');
     const targetProductImgDir = path.join(rootImgDir, cleanProdName);
 
@@ -539,7 +540,9 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     if (!adGroupName.includes('|')) adGroupName = `${adGroupName} | ${todayStr}`;
 
     const isSeparate = campaignMode !== 'single';
-    const targetCampName = isSeparate ? `Chiến dịch SP - ${shortName} | ${todayStr}` : effectiveCampaignName;
+    let cleanPrefix = (campaignPrefix && campaignPrefix.trim()) ? campaignPrefix.trim() : 'Chiến dịch SP -';
+    if (!cleanPrefix.endsWith(' ')) cleanPrefix = cleanPrefix + ' ';
+    const targetCampName = isSeparate ? `${cleanPrefix}${shortName} | ${todayStr}` : effectiveCampaignName;
 
     const adData = {
         campaign_name: targetCampName,
@@ -665,7 +668,7 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
 
 // 10. Tạo chiến dịch hàng loạt cho nhiều sản phẩm
 async function executeBatchCampaign(sender, params) {
-    const { products, campaignMode = 'separate', campaignName, dailyBudget = 50000, maxCpc, customImagesDir } = params;
+    const { products, campaignMode = 'separate', campaignPrefix, campaignName, dailyBudget = 50000, maxCpc, customImagesDir } = params;
     if (!products || !Array.isArray(products) || products.length === 0) {
         return { success: false, error: 'Chưa chọn sản phẩm nào để tạo chiến dịch!' };
     }
@@ -679,6 +682,7 @@ async function executeBatchCampaign(sender, params) {
 
     const today = new Date();
     const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const effectivePrefix = (campaignPrefix && campaignPrefix.trim()) ? campaignPrefix.trim() : (cfg.campaign_prefix || "Chiến dịch SP - ");
     const effectiveCampaignName = campaignName || cfg.default_campaign_name || "Chiến dịch sản phẩm Web Derma | 21/10";
     const effectiveMaxCpc = maxCpc ? parseInt(maxCpc, 10) : (cfg.max_cpc || 2000);
     const effectiveDailyBudget = dailyBudget ? parseInt(dailyBudget, 10) : (cfg.daily_budget || 50000);
@@ -702,6 +706,7 @@ async function executeBatchCampaign(sender, params) {
             apiKey,
             model,
             campaignMode,
+            campaignPrefix: effectivePrefix,
             effectiveCampaignName,
             dailyBudget: effectiveDailyBudget,
             effectiveMaxCpc,

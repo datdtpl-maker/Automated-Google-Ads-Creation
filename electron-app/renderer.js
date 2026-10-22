@@ -62,6 +62,8 @@ async function loadAndApplyConfig() {
     document.getElementById('cfg_wp_user').value = cfg.wp_user || 'admin';
     document.getElementById('cfg_wp_password').value = cfg.wp_app_password || '';
     document.getElementById('cfg_root_images_dir').value = cleanImagesDir;
+    document.getElementById('cfg_campaign_prefix').value = cfg.campaign_prefix || 'Chiến dịch SP - ';
+    document.getElementById('input_campaign_prefix').value = cfg.campaign_prefix || 'Chiến dịch SP - ';
     document.getElementById('cfg_daily_budget').value = cfg.daily_budget || 50000;
     document.getElementById('input_daily_budget').value = cfg.daily_budget || 50000;
     document.getElementById('cfg_max_cpc').value = cfg.max_cpc || 2000;
@@ -341,6 +343,7 @@ function setupEventListeners() {
       wp_user: document.getElementById('cfg_wp_user').value.trim(),
       wp_app_password: document.getElementById('cfg_wp_password').value.trim(),
       root_images_dir: document.getElementById('cfg_root_images_dir').value.trim(),
+      campaign_prefix: document.getElementById('cfg_campaign_prefix').value.trim() || 'Chiến dịch SP - ',
       daily_budget: parseInt(document.getElementById('cfg_daily_budget').value, 10) || 50000,
       max_cpc: parseInt(document.getElementById('cfg_max_cpc').value, 10) || 2000,
       default_campaign_name: document.getElementById('cfg_default_camp_name').value.trim()
@@ -361,6 +364,7 @@ function setupEventListeners() {
   const labelSeparate = document.getElementById('label_mode_separate');
   const labelSingle = document.getElementById('label_mode_single');
   const grpCampName = document.getElementById('grp_campaign_name');
+  const grpCampPrefix = document.getElementById('grp_campaign_prefix');
   const grpDailyBudget = document.getElementById('grp_daily_budget');
   const campaignBar = document.querySelector('.campaign-bar');
 
@@ -369,9 +373,10 @@ function setupEventListeners() {
     labelSeparate.classList.toggle('active', isSeparate);
     labelSingle.classList.toggle('active', !isSeparate);
     if (grpCampName) grpCampName.style.display = isSeparate ? 'none' : 'flex';
+    if (grpCampPrefix) grpCampPrefix.style.display = isSeparate ? 'flex' : 'none';
     if (grpDailyBudget) grpDailyBudget.style.display = isSeparate ? 'flex' : 'none';
     if (campaignBar) {
-      campaignBar.style.gridTemplateColumns = isSeparate ? '1fr 1fr auto' : '1.5fr 1fr auto';
+      campaignBar.style.gridTemplateColumns = isSeparate ? '1.2fr 1fr 1fr auto' : '2fr 1fr auto';
     }
   }
 
@@ -590,6 +595,7 @@ async function generateCampaign() {
 
   const btn = document.getElementById('btn_generate_campaign');
   const campaignMode = document.querySelector('input[name="campaign_mode"]:checked')?.value || 'separate';
+  const campaignPrefix = document.getElementById('input_campaign_prefix').value.trim() || 'Chiến dịch SP - ';
   const campaignName = document.getElementById('input_campaign_name').value.trim();
   const dailyBudget = parseInt(document.getElementById('input_daily_budget').value, 10) || 50000;
   const maxCpc = parseInt(document.getElementById('input_max_cpc').value, 10) || 2000;
@@ -613,6 +619,7 @@ async function generateCampaign() {
     const res = await window.electronAPI.generateBatchCampaign({
       products: selectedProductsList,
       campaignMode,
+      campaignPrefix,
       campaignName,
       dailyBudget,
       maxCpc,
