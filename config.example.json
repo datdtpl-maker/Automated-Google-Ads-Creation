@@ -1,0 +1,10 @@
+{
+    "gemini_api_key": "YOUR_GEMINI_API_KEY_HERE",
+    "gemini_model": "gemini-3.8-flash",
+    "wp_url": "https://your-domain.com",
+    "wp_user": "your_username",
+    "wp_app_password": "xxxx xxxx xxxx xxxx",
+    "default_campaign_name": "Chiến dịch sản phẩm Web | 22/10",
+    "max_cpc": 2000,
+    "root_images_dir": "output/images"
+}
