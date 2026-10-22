@@ -12,8 +12,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openFolder: (folderPath) => ipcRenderer.invoke('open-folder', folderPath),
     showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
     
-    // Nghiá»‡p vá»¥ WooCommerce & Google Ads
+    // Nghiệp vụ WooCommerce & Google Ads
     searchProducts: (keyword) => ipcRenderer.invoke('search-products', keyword),
     getProductDetails: (idOrUrl) => ipcRenderer.invoke('get-product-details', idOrUrl),
-    generateCampaign: (params) => ipcRenderer.invoke('generate-campaign', params)
+    generateCampaign: (params) => ipcRenderer.invoke('generate-campaign', params),
+    generateBatchCampaign: (params) => ipcRenderer.invoke('generate-batch-campaign', params),
+    onProgress: (callback) => ipcRenderer.on('batch-progress', (event, val) => callback(val)),
+    removeProgressListener: () => ipcRenderer.removeAllListeners('batch-progress')
 });

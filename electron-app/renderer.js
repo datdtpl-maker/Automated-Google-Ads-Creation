@@ -1,6 +1,6 @@
 // Google Ads Auto Generator Pro - Renderer Script
 let currentConfig = null;
-let currentSelectedProduct = null;
+let selectedProductsList = [];
 let lastGeneratedResult = null;
 let searchDebounceTimer = null;
 
@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   await loadAndApplyConfig();
   await checkSystemHealth();
+  updateSelectedProductsUI();
 });
 
 // Kiểm tra và khử mojibake
@@ -119,7 +120,134 @@ async function checkSystemHealth() {
   }
 }
 
-// 3. Thiết lập toàn bộ sự kiện giao diện
+// 3. Quản lý trạng thái sản phẩm được chọn (Đơn lẻ & Hàng loạt)
+function isProductSelected(pId) {
+  return selectedProductsList.some(item => item.id === pId);
+}
+
+function toggleProductSelection(p, checkboxEl) {
+  const idx = selectedProductsList.findIndex(item => item.id === p.id);
+  if (idx >= 0) {
+    selectedProductsList.splice(idx, 1);
+    if (checkboxEl) checkboxEl.checked = false;
+  } else {
+    selectedProductsList.push({
+      id: p.id,
+      title: p.name,
+      url: p.permalink,
+      price: p.price,
+      categories: p.categories,
+      description: p.short_description || p.name,
+      images: p.images || [],
+      thumb: p.image || 'icon.png'
+    });
+    if (checkboxEl) checkboxEl.checked = true;
+  }
+  updateSelectedProductsUI();
+}
+
+function selectAllFromSearchResults(products) {
+  products.forEach(p => {
+    if (!isProductSelected(p.id)) {
+      selectedProductsList.push({
+        id: p.id,
+        title: p.name,
+        url: p.permalink,
+        price: p.price,
+        categories: p.categories,
+        description: p.short_description || p.name,
+        images: p.images || [],
+        thumb: p.image || 'icon.png'
+      });
+    }
+  });
+  const cbs = document.querySelectorAll('.dropdown-item-cb');
+  cbs.forEach(cb => cb.checked = true);
+  updateSelectedProductsUI();
+}
+
+function removeProductFromSelection(pId) {
+  selectedProductsList = selectedProductsList.filter(item => item.id !== pId);
+  const cb = document.querySelector(`.dropdown-item-cb[data-id="${pId}"]`);
+  if (cb) cb.checked = false;
+  updateSelectedProductsUI();
+}
+
+function clearAllSelections() {
+  selectedProductsList = [];
+  const cbs = document.querySelectorAll('.dropdown-item-cb');
+  cbs.forEach(cb => cb.checked = false);
+  updateSelectedProductsUI();
+}
+
+function updateSelectedProductsUI() {
+  const cardSingle = document.getElementById('card_selected_product');
+  const cardBatch = document.getElementById('card_batch_products');
+  const btnGen = document.getElementById('btn_generate_campaign');
+  const batchCountEl = document.getElementById('batch_count');
+  const batchChipsList = document.getElementById('batch_chips_list');
+
+  const count = selectedProductsList.length;
+
+  // Giữ nguyên tên chiến dịch người dùng đã nhập, chỉ điền nếu ô đang trống
+  const currentCamp = document.getElementById('input_campaign_name').value.trim();
+  if (!currentCamp) {
+    document.getElementById('input_campaign_name').value = 'Chiến dịch sản phẩm Web Derma | 21/10';
+  }
+
+  if (count === 0) {
+    cardSingle.style.display = 'flex';
+    cardBatch.style.display = 'none';
+    document.getElementById('p_thumb').src = 'icon.png';
+    document.getElementById('p_title').innerText = 'Chưa chọn sản phẩm nào (Gõ tìm kiếm ở trên để chọn một hoặc nhiều sản phẩm)';
+    document.getElementById('p_price').innerText = 'Giá: --';
+    document.getElementById('p_cat').innerText = 'Danh mục: --';
+    document.getElementById('p_url').href = '#';
+
+    btnGen.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>TẠO CHIẾN DỊCH & TẢI ẢNH</span>`;
+  } else if (count === 1) {
+    cardSingle.style.display = 'flex';
+    cardBatch.style.display = 'none';
+
+    const p = selectedProductsList[0];
+    document.getElementById('p_thumb').src = p.thumb || 'icon.png';
+    document.getElementById('p_title').innerText = p.title;
+    document.getElementById('p_price').innerText = `Giá: ${p.price}`;
+    document.getElementById('p_cat').innerText = `Danh mục: ${p.categories || 'Chung'}`;
+    document.getElementById('p_url').href = p.url || '#';
+
+    btnGen.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>TẠO CHIẾN DỊCH & TẢI ẢNH (1 SẢN PHẨM)</span>`;
+    updateTerminal(`● Đã chọn 1 sản phẩm: "${p.title}". Bấm nút bên dưới để tạo.`);
+  } else {
+    // Chế độ hàng loạt
+    cardSingle.style.display = 'none';
+    cardBatch.style.display = 'flex';
+    if (batchCountEl) batchCountEl.innerText = count;
+
+    if (batchChipsList) {
+      batchChipsList.innerHTML = '';
+      selectedProductsList.forEach(p => {
+        const chip = document.createElement('div');
+        chip.className = 'batch-chip';
+        chip.innerHTML = `
+          <img src="${p.thumb || 'icon.png'}" alt="">
+          <span title="${p.title}">${p.title.length > 25 ? p.title.slice(0, 23) + '...' : p.title}</span>
+          <span class="batch-chip-remove" title="Bỏ chọn sản phẩm này">✕</span>
+        `;
+        chip.querySelector('.batch-chip-remove').addEventListener('click', (e) => {
+          e.stopPropagation();
+          removeProductFromSelection(p.id);
+        });
+        batchChipsList.appendChild(chip);
+      });
+    }
+
+    btnGen.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>TẠO HÀNG LOẠT (${count} SẢN PHẨM) & TẢI ẢNH</span>`;
+    updateTerminal(`● Đã chọn ${count} sản phẩm để tạo hàng loạt trong 1 file CSV duy nhất.`);
+  }
+}
+
+// 4. Thiết lập toàn bộ sự kiện giao diện
 function setupEventListeners() {
   const sidebar = document.getElementById('sidebar_settings');
   const btnToggleSidebar = document.getElementById('btn_toggle_sidebar');
@@ -224,7 +352,16 @@ function setupEventListeners() {
     }
   });
 
-  // Tìm kiếm sản phẩm WooCommerce với Autocomplete
+  // Nút xóa tất cả sản phẩm hàng loạt
+  const btnClearBatch = document.getElementById('btn_clear_batch');
+  if (btnClearBatch) {
+    btnClearBatch.addEventListener('click', () => {
+      clearAllSelections();
+      showToast('Đã bỏ chọn tất cả sản phẩm', 'success');
+    });
+  }
+
+  // Tìm kiếm sản phẩm WooCommerce với Autocomplete & Multi-select Checkbox
   const searchInput = document.getElementById('input_product_search');
   const searchDropdown = document.getElementById('search_dropdown');
 
@@ -243,11 +380,38 @@ function setupEventListeners() {
       const res = await window.electronAPI.searchProducts(query);
       if (res.success && res.products.length > 0) {
         searchDropdown.innerHTML = '';
+
+        // Thanh thao tác trên cùng dropdown
+        const topBar = document.createElement('div');
+        topBar.className = 'dropdown-top-bar';
+        topBar.innerHTML = `
+          <span>Tìm thấy ${res.products.length} sản phẩm</span>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button type="button" class="btn-clear-batch" id="btn_dd_select_all" style="font-weight: 600; font-size: 11px; color: var(--google-blue); text-decoration: underline;">Chọn tất cả</button>
+            <button type="button" class="dropdown-done-btn" id="btn_dd_done">Xong</button>
+          </div>
+        `;
+        searchDropdown.appendChild(topBar);
+
+        topBar.querySelector('#btn_dd_select_all').addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          selectAllFromSearchResults(res.products);
+          showToast(`Đã chọn tất cả ${res.products.length} sản phẩm trong kết quả`, 'success');
+        });
+
+        topBar.querySelector('#btn_dd_done').addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          searchDropdown.style.display = 'none';
+        });
+
+        // Danh sách sản phẩm
         res.products.forEach(p => {
           const item = document.createElement('div');
           item.className = 'dropdown-item';
+          const isChecked = isProductSelected(p.id);
           const imgTag = p.image ? `<img src="${p.image}" alt="">` : `<div style="width:44px;height:44px;background:#e2e8f0;border-radius:6px;"></div>`;
           item.innerHTML = `
+            <input type="checkbox" class="dropdown-item-cb" data-id="${p.id}" ${isChecked ? 'checked' : ''}>
             ${imgTag}
             <div class="dropdown-item-info">
               <div class="dropdown-item-title">${p.name}</div>
@@ -257,10 +421,19 @@ function setupEventListeners() {
               </div>
             </div>
           `;
-          item.addEventListener('click', () => {
-            selectProduct(p);
-            searchDropdown.style.display = 'none';
+
+          const cb = item.querySelector('.dropdown-item-cb');
+          cb.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            toggleProductSelection(p, cb);
           });
+
+          item.addEventListener('click', (ev) => {
+            if (ev.target !== cb) {
+              toggleProductSelection(p, cb);
+            }
+          });
+
           searchDropdown.appendChild(item);
         });
       } else {
@@ -342,21 +515,21 @@ function setupEventListeners() {
 
   // Nút sao chép nội dung văn bản
   document.getElementById('btn_copy_all_headlines').addEventListener('click', () => {
-    if (!lastGeneratedResult) return;
+    if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
     const text = lastGeneratedResult.ad_data.headlines.join('\n');
     navigator.clipboard.writeText(text);
     showToast('Đã sao chép 15 tiêu đề vào Clipboard!', 'success');
   });
 
   document.getElementById('btn_copy_all_descriptions').addEventListener('click', () => {
-    if (!lastGeneratedResult) return;
+    if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
     const text = lastGeneratedResult.ad_data.descriptions.join('\n');
     navigator.clipboard.writeText(text);
     showToast('Đã sao chép 4 mô tả vào Clipboard!', 'success');
   });
 
   document.getElementById('btn_copy_all_keywords').addEventListener('click', () => {
-    if (!lastGeneratedResult) return;
+    if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
     const text = lastGeneratedResult.ad_data.keywords.join('\n');
     navigator.clipboard.writeText(text);
     showToast('Đã sao chép danh sách từ khóa vào Clipboard!', 'success');
@@ -365,7 +538,7 @@ function setupEventListeners() {
   const copyAdTextBtn = document.getElementById('btn_copy_all_ad_text');
   if (copyAdTextBtn) {
     copyAdTextBtn.addEventListener('click', () => {
-      if (!lastGeneratedResult) return;
+      if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
       const ad = lastGeneratedResult.ad_data;
       let text = `=== CHIẾN DỊCH: ${ad.campaign_name} ===\n`;
       text += `Nhóm quảng cáo: ${ad.ad_group_name}\n`;
@@ -380,40 +553,10 @@ function setupEventListeners() {
   }
 }
 
-// 4. Khi chọn một sản phẩm từ danh sách
-function selectProduct(p) {
-  currentSelectedProduct = {
-    id: p.id,
-    title: p.name,
-    url: p.permalink,
-    price: p.price,
-    categories: p.categories,
-    description: p.short_description || p.name,
-    images: p.images || []
-  };
-
-  document.getElementById('p_thumb').src = p.image || 'icon.png';
-  document.getElementById('p_title').innerText = p.name;
-  document.getElementById('p_price').innerText = `Giá: ${p.price}`;
-  document.getElementById('p_cat').innerText = `Danh mục: ${p.categories || 'Chung'}`;
-  
-  const linkEl = document.getElementById('p_url');
-  linkEl.href = p.permalink || '#';
-
-  // Giữ nguyên tên chiến dịch người dùng đã nhập, chỉ điền nếu ô đang trống
-  const currentCamp = document.getElementById('input_campaign_name').value.trim();
-  if (!currentCamp) {
-    document.getElementById('input_campaign_name').value = 'Chiến dịch sản phẩm Web Derma | 21/10';
-  }
-
-  updateTerminal(`● Đã chọn sản phẩm: "${p.name}". Bấm "Tạo chiến dịch" để xử lý.`);
-  showToast(`Đã chọn: ${p.name}`, 'success');
-}
-
-// 5. Thực thi Tạo Chiến Dịch
+// 5. Thực thi Tạo Chiến Dịch (Hàng loạt hoặc Đơn lẻ)
 async function generateCampaign() {
-  if (!currentSelectedProduct) {
-    showToast('Vui lòng tìm kiếm và chọn một sản phẩm trước!', 'error');
+  if (selectedProductsList.length === 0) {
+    showToast('Vui lòng tìm kiếm và chọn ít nhất một sản phẩm trước!', 'error');
     return;
   }
 
@@ -423,12 +566,21 @@ async function generateCampaign() {
   const customImagesDir = document.getElementById('cfg_root_images_dir').value.trim();
 
   btn.disabled = true;
-  btn.innerHTML = `<span>⏳ Đang phân tích & tạo quảng cáo...</span>`;
-  updateTerminal(`[1/5] Đang gửi thông tin sản phẩm sang Gemini AI...`);
+  const isBatch = selectedProductsList.length > 1;
+  btn.innerHTML = `<span>⏳ Đang xử lý ${selectedProductsList.length} sản phẩm...</span>`;
+  updateTerminal(`[1/${selectedProductsList.length + 1}] Bắt đầu quy trình tạo chiến dịch Google Ads...`);
+
+  // Lắng nghe tiến độ batch real-time
+  if (window.electronAPI.removeProgressListener) window.electronAPI.removeProgressListener();
+  if (window.electronAPI.onProgress) {
+    window.electronAPI.onProgress((data) => {
+      updateTerminal(`● [${data.current}/${data.total}] Đang xử lý: "${data.productTitle}"...`);
+    });
+  }
 
   try {
-    const res = await window.electronAPI.generateCampaign({
-      product: currentSelectedProduct,
+    const res = await window.electronAPI.generateBatchCampaign({
+      products: selectedProductsList,
       campaignName,
       maxCpc,
       customImagesDir
@@ -441,16 +593,23 @@ async function generateCampaign() {
     }
 
     lastGeneratedResult = res;
-    updateTerminal(`✓ Thành công! Đã tạo quảng cáo, tải ${res.downloaded_images?.length || 0} ảnh và xuất CSV All-in-One.`);
-    showToast(`Đã tạo chiến dịch thành công cho ${currentSelectedProduct.title}!`, 'success');
+
+    if (res.is_batch) {
+      updateTerminal(`✓ Thành công! Đã tạo ${res.successful_products} nhóm quảng cáo trong file CSV Master duy nhất.`);
+      showToast(`Tạo thành công ${res.successful_products} nhóm quảng cáo hàng loạt!`, 'success');
+    } else {
+      updateTerminal(`✓ Thành công! Đã tạo quảng cáo, tải ${res.downloaded_images?.length || 0} ảnh và xuất CSV All-in-One.`);
+      showToast(`Đã tạo chiến dịch thành công cho ${selectedProductsList[0].title}!`, 'success');
+    }
 
     renderResults(res);
   } catch (e) {
     showToast(`Lỗi ngoại lệ: ${e.message}`, 'error');
     updateTerminal(`✗ Lỗi: ${e.message}`);
   } finally {
+    if (window.electronAPI.removeProgressListener) window.electronAPI.removeProgressListener();
     btn.disabled = false;
-    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg><span>TẠO CHIẾN DỊCH & TẢI ẢNH</span>`;
+    updateSelectedProductsUI();
   }
 }
 
@@ -459,7 +618,8 @@ function renderResults(data) {
   const resultsSection = document.getElementById('results_section');
   resultsSection.style.display = 'flex';
 
-  const ad = data.ad_data;
+  const ad = data.ad_data || (data.products_results && data.products_results[0]?.adData);
+  if (!ad) return;
 
   // 1. Mockup Tab
   const domain = (ad.final_url.match(/^(?:https?:\/\/)?([^\/]+)/i) || ['', 'khaihoanderma.com'])[1];
@@ -532,13 +692,23 @@ function renderResults(data) {
     gridK.appendChild(card);
   });
 
-  // 5. Images Grid
+  // 5. Images Grid - Tổng hợp ảnh của tất cả sản phẩm đã tải
   const gridImg = document.getElementById('grid_images');
   gridImg.innerHTML = '';
-  document.getElementById('res_img_count').innerText = data.downloaded_images?.length || 0;
+
+  const allImages = [];
+  if (data.products_results && data.products_results.length > 0) {
+    data.products_results.forEach(pr => {
+      if (pr.downloaded_images) allImages.push(...pr.downloaded_images);
+    });
+  } else if (data.downloaded_images) {
+    allImages.push(...data.downloaded_images);
+  }
+
+  document.getElementById('res_img_count').innerText = allImages.length;
   document.getElementById('label_img_folder').innerText = data.images_folder || '--';
 
-  (data.downloaded_images || []).forEach(img => {
+  allImages.forEach(img => {
     const item = document.createElement('div');
     item.className = 'gallery-item';
     item.title = img.fileName;

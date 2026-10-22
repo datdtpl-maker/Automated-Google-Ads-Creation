@@ -379,23 +379,26 @@ ipcMain.handle('get-product-details', async (event, id) => {
     }
 });
 
-// 9. Tạo chiến dịch Google Ads và xuất CSV chuẩn
-ipcMain.handle('generate-campaign', async (event, params) => {
-    const { product, campaignName, maxCpc, customImagesDir } = params;
-    const cfg = readConfig();
+// 9. Cấu trúc Header chuẩn 30 cột cho Google Ads Bulk Upload
+const CSV_HEADERS = [
+    'Campaign', 'Ad group', 'Campaign status', 'Ad group status', 'Max CPC',
+    'Ad type', 'Final URL', 'Path 1', 'Path 2'
+];
+for (let i = 1; i <= 15; i++) CSV_HEADERS.push(`Headline ${i}`);
+for (let i = 1; i <= 4; i++) CSV_HEADERS.push(`Description ${i}`);
+CSV_HEADERS.push('Keyword', 'Criterion Type');
 
-    const apiKey = cfg.gemini_api_key || DEFAULT_CONFIG.gemini_api_key;
-    const model = 'gemini-3.8-flash';
-    if (!apiKey) {
-        return { success: false, error: 'Thiếu Gemini API Key! Vui lòng nhập và lưu trong Cấu hình hệ thống.' };
+function escapeCsv(val) {
+    if (val === null || val === undefined) return '';
+    const s = String(val);
+    if (s.includes('"') || s.includes(',') || s.includes('\n') || s.includes('\r')) {
+        return `"${s.replace(/"/g, '""')}"`;
     }
+    return s;
+}
 
-    const today = new Date();
-    const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-    const effectiveCampaignName = campaignName || cfg.default_campaign_name || "Chiến dịch sản phẩm Web Derma | 21/10";
-    const effectiveMaxCpc = maxCpc ? parseInt(maxCpc, 10) : (cfg.max_cpc || 2000);
-
-    const rootImgDir = (customImagesDir && customImagesDir.trim()) ? customImagesDir.trim() : (cfg.root_images_dir || getDefaultImagesDir());
+// Hàm xử lý từng sản phẩm đơn lẻ (gọi AI, tải ảnh, tạo dòng CSV)
+async function processSingleProduct(product, { apiKey, model, effectiveCampaignName, effectiveMaxCpc, rootImgDir, todayStr }) {
     const cleanProdName = sanitizeFolderName(product.title || 'san_pham');
     const targetProductImgDir = path.join(rootImgDir, cleanProdName);
 
@@ -577,47 +580,20 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
         console.error('Lỗi tạo thư mục ảnh:', e);
     }
 
-    // Xuất file CSV All-in-One chuẩn Google Ads Bulk Upload
-    const outputDir = getDefaultOutputDir();
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
+    // Tạo các dòng dữ liệu CSV cho sản phẩm này
+    const productRows = [];
 
-    const cleanFileTag = sanitizeFolderName(shortName);
-    const csvFileName = `google_ads_all_in_one_${cleanFileTag}.csv`;
-    const csvFilePath = path.join(outputDir, csvFileName);
-
-    const headers = [
-        'Campaign', 'Ad group', 'Campaign status', 'Ad group status', 'Max CPC',
-        'Ad type', 'Final URL', 'Path 1', 'Path 2'
-    ];
-    for (let i = 1; i <= 15; i++) headers.push(`Headline ${i}`);
-    for (let i = 1; i <= 4; i++) headers.push(`Description ${i}`);
-    headers.push('Keyword', 'Criterion Type');
-
-    function escapeCsv(val) {
-        if (val === null || val === undefined) return '';
-        const s = String(val);
-        if (s.includes('"') || s.includes(',') || s.includes('\n') || s.includes('\r')) {
-            return `"${s.replace(/"/g, '""')}"`;
-        }
-        return s;
-    }
-
-    const csvRows = [];
-    csvRows.push(headers.map(escapeCsv).join(','));
-
-    // Dòng 1: Tạo Nhóm quảng cáo (Ad group - Chuẩn 100% Google Ads Web Bulk Upload)
-    const rowAg = new Array(headers.length).fill('');
+    // Dòng 1: Tạo Nhóm quảng cáo
+    const rowAg = new Array(CSV_HEADERS.length).fill('');
     rowAg[0] = effectiveCampaignName;
     rowAg[1] = adGroupName;
     rowAg[2] = 'Enabled';
     rowAg[3] = 'Enabled';
     rowAg[4] = effectiveMaxCpc;
-    csvRows.push(rowAg.map(escapeCsv).join(','));
+    productRows.push(rowAg);
 
-    // Dòng 2: Tạo Mẫu quảng cáo thích ứng (Responsive search ad)
-    const rowAd = new Array(headers.length).fill('');
+    // Dòng 2: Tạo Mẫu quảng cáo RSA
+    const rowAd = new Array(CSV_HEADERS.length).fill('');
     rowAd[0] = effectiveCampaignName;
     rowAd[1] = adGroupName;
     rowAd[5] = 'Responsive search ad';
@@ -630,9 +606,9 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     for (let i = 0; i < 4; i++) {
         rowAd[24 + i] = adData.descriptions[i] || '';
     }
-    csvRows.push(rowAd.map(escapeCsv).join(','));
+    productRows.push(rowAd);
 
-    // Dòng 3..N: Tạo Danh sách Từ khóa
+    // Dòng 3..N: Tạo Danh sách Từ khóa đã làm sạch ký tự cấm
     for (const kwRaw of adData.keywords) {
         let cleanKw = kwRaw.trim();
         let criterion = 'Broad';
@@ -649,28 +625,121 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
         kwText = kwText.replace(/[!@%,*+?=&^$~<>;:\\/]/g, ' ').replace(/\s+/g, ' ').trim();
         if (!kwText) continue;
 
-        const rowKw = new Array(headers.length).fill('');
+        const rowKw = new Array(CSV_HEADERS.length).fill('');
         rowKw[0] = effectiveCampaignName;
         rowKw[1] = adGroupName;
         rowKw[4] = effectiveMaxCpc;
-        rowKw[headers.length - 2] = kwText;
-        rowKw[headers.length - 1] = criterion;
-        csvRows.push(rowKw.map(escapeCsv).join(','));
+        rowKw[CSV_HEADERS.length - 2] = kwText;
+        rowKw[CSV_HEADERS.length - 1] = criterion;
+        productRows.push(rowKw);
     }
-
-    // Ghi file với UTF-8 BOM (\uFEFF) chỉ vào đúng thư mục chỉ định ở tool (D:\Project Anti\Auto-Google-Ads\output)
-    const csvContent = '\uFEFF' + csvRows.join('\r\n');
-    fs.writeFileSync(csvFilePath, csvContent, 'utf8');
 
     return {
         success: true,
-        ad_data: adData,
+        adData,
+        rows: productRows,
         images_folder: targetProductImgDir,
         downloaded_images: downloadedImages,
+        shortName
+    };
+}
+
+// 10. Tạo chiến dịch hàng loạt cho nhiều sản phẩm
+async function executeBatchCampaign(sender, params) {
+    const { products, campaignName, maxCpc, customImagesDir } = params;
+    if (!products || !Array.isArray(products) || products.length === 0) {
+        return { success: false, error: 'Chưa chọn sản phẩm nào để tạo chiến dịch!' };
+    }
+
+    const cfg = readConfig();
+    const apiKey = cfg.gemini_api_key || DEFAULT_CONFIG.gemini_api_key;
+    const model = 'gemini-3.8-flash';
+    if (!apiKey) {
+        return { success: false, error: 'Thiếu Gemini API Key! Vui lòng nhập và lưu trong Cấu hình hệ thống.' };
+    }
+
+    const today = new Date();
+    const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+    const effectiveCampaignName = campaignName || cfg.default_campaign_name || "Chiến dịch sản phẩm Web Derma | 21/10";
+    const effectiveMaxCpc = maxCpc ? parseInt(maxCpc, 10) : (cfg.max_cpc || 2000);
+    const rootImgDir = (customImagesDir && customImagesDir.trim()) ? customImagesDir.trim() : (cfg.root_images_dir || getDefaultImagesDir());
+
+    const allRows = [];
+    const productsResults = [];
+
+    for (let i = 0; i < products.length; i++) {
+        const prod = products[i];
+        if (sender && typeof sender.send === 'function') {
+            sender.send('batch-progress', {
+                current: i + 1,
+                total: products.length,
+                productTitle: prod.title,
+                message: `[${i + 1}/${products.length}] Đang xử lý sản phẩm "${prod.title}"...`
+            });
+        }
+
+        const res = await processSingleProduct(prod, {
+            apiKey,
+            model,
+            effectiveCampaignName,
+            effectiveMaxCpc,
+            rootImgDir,
+            todayStr
+        });
+
+        if (res.success) {
+            allRows.push(...res.rows);
+            productsResults.push(res);
+        } else {
+            console.warn(`Lỗi tạo chiến dịch cho "${prod.title}":`, res.error);
+        }
+    }
+
+    if (allRows.length === 0) {
+        return { success: false, error: 'Không thể tạo dữ liệu quảng cáo cho các sản phẩm đã chọn.' };
+    }
+
+    // Xuất duy nhất 1 file CSV All-in-One Master chứa toàn bộ các nhóm
+    const outputDir = getDefaultOutputDir();
+    const cleanTag = productsResults.length === 1 ? sanitizeFolderName(productsResults[0].shortName) : `batch_${productsResults.length}_san_pham`;
+    const csvFileName = `google_ads_all_in_one_${cleanTag}.csv`;
+    const csvFilePath = path.join(outputDir, csvFileName);
+
+    const csvContentRows = [CSV_HEADERS.map(escapeCsv).join(',')];
+    for (const r of allRows) {
+        csvContentRows.push(r.map(escapeCsv).join(','));
+    }
+
+    fs.writeFileSync(csvFilePath, '\uFEFF' + csvContentRows.join('\r\n'), 'utf8');
+
+    return {
+        success: true,
+        is_batch: productsResults.length > 1,
+        total_products: products.length,
+        successful_products: productsResults.length,
         csv_file_path: csvFilePath,
         csv_file_name: csvFileName,
-        output_dir: outputDir
+        output_dir: outputDir,
+        products_results: productsResults,
+        ad_data: productsResults[0]?.adData,
+        images_folder: productsResults[0]?.images_folder,
+        downloaded_images: productsResults[0]?.downloaded_images
     };
+}
+
+ipcMain.handle('generate-batch-campaign', async (event, params) => {
+    return await executeBatchCampaign(event.sender, params);
+});
+
+// 11. Giữ tương thích đơn sản phẩm
+ipcMain.handle('generate-campaign', async (event, params) => {
+    const { product, campaignName, maxCpc, customImagesDir } = params;
+    return await executeBatchCampaign(event.sender, {
+        products: [product],
+        campaignName,
+        maxCpc,
+        customImagesDir
+    });
 });
 
 // Khởi chạy ứng dụng

@@ -182,17 +182,29 @@
         </div>
       </section>
 
-      <!-- 2. Selected Product Card -->
+      <!-- 2. Selected Product Card (Single Product) -->
       <section class="selected-product-card" id="card_selected_product">
         <img src="icon.png" alt="Ảnh sản phẩm" class="product-thumb" id="p_thumb">
         <div class="product-details">
-          <h3 class="product-title" id="p_title">Chưa chọn sản phẩm nào</h3>
+          <h3 class="product-title" id="p_title">Chưa chọn sản phẩm nào (Gõ tìm kiếm ở trên để chọn một hoặc nhiều sản phẩm)</h3>
           <div class="product-badges">
             <span class="p-badge price" id="p_price">Giá: --</span>
             <span class="p-badge category" id="p_cat">Danh mục: --</span>
             <a href="#" target="_blank" class="p-badge link" id="p_url" title="Bấm để mở liên kết sản phẩm">Xem trang web ↗</a>
           </div>
         </div>
+      </section>
+
+      <!-- 2b. Selected Products Card (Multi Products Batch) -->
+      <section class="batch-products-card" id="card_batch_products" style="display: none;">
+        <div class="batch-header">
+          <span class="batch-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+            Danh sách tạo hàng loạt (<span id="batch_count" style="color: var(--google-blue);">0</span> sản phẩm đã chọn)
+          </span>
+          <button class="btn-clear-batch" id="btn_clear_batch">✕ Bỏ chọn tất cả</button>
+        </div>
+        <div class="batch-chips-list" id="batch_chips_list"></div>
       </section>
 
       <!-- 3. Campaign Generation Bar -->
