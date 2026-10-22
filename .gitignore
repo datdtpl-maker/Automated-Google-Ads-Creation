@@ -22,8 +22,11 @@ images/
 # =======================================================
 build/
 dist/
+dist-installer/
+node_modules/
 *.spec
 *.exe
+*.blockmap
 
 # =======================================================
 # PYTHON BYTECODE & CACHE

@@ -19,6 +19,9 @@ def create_desktop_shortcut():
     args = "" if os.path.exists(exe_path) else f'"{launcher_path}"'
     work_dir = os.path.dirname(exe_path) if os.path.exists(exe_path) else current_dir
 
+    icon_path = os.path.join(current_dir, "icon.ico")
+    icon_loc = f"{icon_path},0" if os.path.exists(icon_path) else "shell32.dll,220"
+
     ps_script = f"""
     $ws = New-Object -ComObject WScript.Shell
     $s = $ws.CreateShortcut('{shortcut_path}')
@@ -26,7 +29,7 @@ def create_desktop_shortcut():
     $s.Arguments = '{args}'
     $s.WorkingDirectory = '{work_dir}'
     $s.Description = 'Google Ads Auto Generator'
-    $s.IconLocation = 'shell32.dll,220'
+    $s.IconLocation = '{icon_loc}'
     $s.Save()
     """
 
