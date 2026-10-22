@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Kiểm tra và khử mojibake
 function cleanSafeText(str, fallback) {
   if (!str || /[\u00C0-\u00FF]{2,}|Tà€i|liĂª|ChiĂ/.test(str)) return fallback;
+  if (str === 'Chiến dịch sản phẩm Web Derma | 22/10') return 'Chiến dịch sản phẩm Web Derma | 21/10';
   return str;
 }
 
@@ -51,9 +52,7 @@ async function loadAndApplyConfig() {
     const cfg = await window.electronAPI.getConfig();
     currentConfig = cfg;
 
-    const today = new Date();
-    const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-    const cleanCampName = cleanSafeText(cfg.default_campaign_name, `Chiến dịch sản phẩm Web Derma | ${todayStr}`);
+    const cleanCampName = cleanSafeText(cfg.default_campaign_name, 'Chiến dịch sản phẩm Web Derma | 21/10');
     const cleanImagesDir = cleanSafeText(cfg.root_images_dir, 'D:\\Project Anti\\Auto-Google-Ads\\output\\images');
 
     document.getElementById('cfg_gemini_key').value = cfg.gemini_api_key || '';
@@ -401,9 +400,7 @@ function selectProduct(p) {
   // Giữ nguyên tên chiến dịch người dùng đã nhập, chỉ điền nếu ô đang trống
   const currentCamp = document.getElementById('input_campaign_name').value.trim();
   if (!currentCamp) {
-    const today = new Date();
-    const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-    document.getElementById('input_campaign_name').value = `Chiến dịch sản phẩm Web Derma | ${todayStr}`;
+    document.getElementById('input_campaign_name').value = 'Chiến dịch sản phẩm Web Derma | 21/10';
   }
 
   updateTerminal(`● Đã chọn sản phẩm: "${p.name}". Bấm "Tạo chiến dịch" để xử lý.`);

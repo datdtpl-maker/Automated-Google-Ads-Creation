@@ -14,7 +14,7 @@ const DEFAULT_CONFIG = {
     wp_url: "https://khaihoanderma.com",
     wp_user: "admin",
     wp_app_password: EMBEDDED_PASS,
-    default_campaign_name: "Chiến dịch sản phẩm Web Derma | 22/10",
+    default_campaign_name: "Chiến dịch sản phẩm Web Derma | 21/10",
     max_cpc: 2000,
     root_images_dir: "D:\\Project Anti\\Auto-Google-Ads\\output\\images"
 };
@@ -98,8 +98,8 @@ function readConfig() {
                 needsResave = true;
             }
 
-            // Tự động sửa lỗi font tiếng Việt mojibake trong config cũ
-            if (isMojibake(config.default_campaign_name)) {
+            // Tự động sửa lỗi font tiếng Việt mojibake hoặc tên chiến dịch cũ trong config
+            if (isMojibake(config.default_campaign_name) || config.default_campaign_name === 'Chiến dịch sản phẩm Web Derma | 22/10') {
                 config.default_campaign_name = DEFAULT_CONFIG.default_campaign_name;
                 needsResave = true;
             }
@@ -400,7 +400,7 @@ ipcMain.handle('generate-campaign', async (event, params) => {
 
     const today = new Date();
     const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-    const effectiveCampaignName = campaignName || cfg.default_campaign_name || `Chiến dịch sản phẩm Web Derma | ${todayStr}`;
+    const effectiveCampaignName = campaignName || cfg.default_campaign_name || "Chiến dịch sản phẩm Web Derma | 21/10";
     const effectiveMaxCpc = maxCpc ? parseInt(maxCpc, 10) : (cfg.max_cpc || 2000);
 
     const rootImgDir = (customImagesDir && customImagesDir.trim()) ? customImagesDir.trim() : (cfg.root_images_dir || getDefaultImagesDir());
@@ -595,8 +595,7 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     const csvFilePath = path.join(outputDir, csvFileName);
 
     const headers = [
-        'Campaign', 'Campaign Daily Budget', 'Campaign type', 'Bid Strategy type', 'Campaign status',
-        'Ad group', 'Ad group status', 'Max CPC',
+        'Campaign', 'Ad group', 'Campaign status', 'Ad group status', 'Max CPC',
         'Ad type', 'Final URL', 'Path 1', 'Path 2'
     ];
     for (let i = 1; i <= 15; i++) headers.push(`Headline ${i}`);
@@ -615,40 +614,32 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     const csvRows = [];
     csvRows.push(headers.map(escapeCsv).join(','));
 
-    // Dòng 1: Tạo Chiến dịch (Bắt buộc để Google Ads Web nhận diện và không báo lỗi "The entity does not exist for Campaign")
-    const rowCampaign = new Array(headers.length).fill('');
-    rowCampaign[0] = effectiveCampaignName;
-    rowCampaign[1] = '100000'; // Ngân sách hàng ngày mặc định
-    rowCampaign[2] = 'Search';
-    rowCampaign[3] = 'Manual CPC';
-    rowCampaign[4] = 'Enabled';
-    csvRows.push(rowCampaign.map(escapeCsv).join(','));
-
-    // Dòng 2: Tạo Nhóm quảng cáo (Ad group)
+    // Dòng 1: Tạo Nhóm quảng cáo (Ad group - Chuẩn 100% Google Ads Web Bulk Upload)
     const rowAg = new Array(headers.length).fill('');
     rowAg[0] = effectiveCampaignName;
-    rowAg[5] = adGroupName;
-    rowAg[6] = 'Enabled';
-    rowAg[7] = effectiveMaxCpc;
+    rowAg[1] = adGroupName;
+    rowAg[2] = 'Enabled';
+    rowAg[3] = 'Enabled';
+    rowAg[4] = effectiveMaxCpc;
     csvRows.push(rowAg.map(escapeCsv).join(','));
 
-    // Dòng 3: Tạo Mẫu quảng cáo thích ứng (Responsive search ad)
+    // Dòng 2: Tạo Mẫu quảng cáo thích ứng (Responsive search ad)
     const rowAd = new Array(headers.length).fill('');
     rowAd[0] = effectiveCampaignName;
-    rowAd[5] = adGroupName;
-    rowAd[8] = 'Responsive search ad';
-    rowAd[9] = product.url;
-    rowAd[10] = path1;
-    rowAd[11] = path2;
+    rowAd[1] = adGroupName;
+    rowAd[5] = 'Responsive search ad';
+    rowAd[6] = product.url;
+    rowAd[7] = path1;
+    rowAd[8] = path2;
     for (let i = 0; i < 15; i++) {
-        rowAd[12 + i] = adData.headlines[i] || '';
+        rowAd[9 + i] = adData.headlines[i] || '';
     }
     for (let i = 0; i < 4; i++) {
-        rowAd[27 + i] = adData.descriptions[i] || '';
+        rowAd[24 + i] = adData.descriptions[i] || '';
     }
     csvRows.push(rowAd.map(escapeCsv).join(','));
 
-    // Dòng 4..N: Tạo Danh sách Từ khóa
+    // Dòng 3..N: Tạo Danh sách Từ khóa
     for (const kwRaw of adData.keywords) {
         const cleanKw = kwRaw.trim();
         let criterion = 'Broad';
@@ -663,8 +654,8 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
 
         const rowKw = new Array(headers.length).fill('');
         rowKw[0] = effectiveCampaignName;
-        rowKw[5] = adGroupName;
-        rowKw[7] = effectiveMaxCpc;
+        rowKw[1] = adGroupName;
+        rowKw[4] = effectiveMaxCpc;
         rowKw[headers.length - 2] = kwText;
         rowKw[headers.length - 1] = criterion;
         csvRows.push(rowKw.map(escapeCsv).join(','));
@@ -680,6 +671,13 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
         if (!fs.existsSync(docsExport)) fs.mkdirSync(docsExport, { recursive: true });
         const docsFilePath = path.join(docsExport, csvFileName);
         fs.writeFileSync(docsFilePath, csvContent, 'utf8');
+    } catch (e) {}
+
+    // Đồng bộ sang thư mục Downloads để người dùng tiện tải lên Google Ads
+    try {
+        const downloadsExport = app.getPath('downloads');
+        const dlFilePath = path.join(downloadsExport, csvFileName);
+        fs.writeFileSync(dlFilePath, csvContent, 'utf8');
     } catch (e) {}
 
     return {
