@@ -425,6 +425,7 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
 5. Từ khóa (keywords): Tạo danh sách 15 - 20 từ khóa có tỷ lệ chuyển đổi cao nhất:
    - Từ khóa đối sánh cụm từ đặt trong ngoặc kép: "từ khóa"
    - Từ khóa đối sánh chính xác đặt trong ngoặc vuông: [từ khóa]
+   - TUYỆT ĐỐI KHÔNG chứa ký tự đặc biệt: %, +, !, @, ,, *, ?, & (Google Ads cấm và báo lỗi). Ví dụ: "munderm 0.05 2" thay vì "munderm 0.05% + 2%".
 
 ĐỊNH DẠNG ĐẦU RA (JSON THUẦN TÚY):
 {
@@ -633,7 +634,7 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
 
     // Dòng 3..N: Tạo Danh sách Từ khóa
     for (const kwRaw of adData.keywords) {
-        const cleanKw = kwRaw.trim();
+        let cleanKw = kwRaw.trim();
         let criterion = 'Broad';
         let kwText = cleanKw;
         if (cleanKw.startsWith('"') && cleanKw.endsWith('"')) {
@@ -643,6 +644,10 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
             criterion = 'Exact';
             kwText = cleanKw.slice(1, -1).trim();
         }
+
+        // Tẩy sạch các ký tự đặc biệt bị Google Ads cấm trong Từ khóa: ! @ % , * + ? = & ^ $ ~ < > ; : \ /
+        kwText = kwText.replace(/[!@%,*+?=&^$~<>;:\\/]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (!kwText) continue;
 
         const rowKw = new Array(headers.length).fill('');
         rowKw[0] = effectiveCampaignName;
