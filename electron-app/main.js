@@ -56,11 +56,18 @@ function getDefaultImagesDir() {
 }
 
 function getDefaultOutputDir() {
+    const localOutput = 'D:\\Project Anti\\Auto-Google-Ads\\output';
+    if (fs.existsSync(path.dirname(localOutput))) {
+        if (!fs.existsSync(localOutput)) fs.mkdirSync(localOutput, { recursive: true });
+        return localOutput;
+    }
     try {
         const docs = app.getPath('documents');
-        return path.join(docs, 'GoogleAdsExports');
+        const p = path.join(docs, 'GoogleAdsExports');
+        if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+        return p;
     } catch (e) {
-        return 'D:\\Project Anti\\Auto-Google-Ads\\output';
+        return localOutput;
     }
 }
 
@@ -588,7 +595,8 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     const csvFilePath = path.join(outputDir, csvFileName);
 
     const headers = [
-        'Campaign', 'Ad group', 'Campaign status', 'Ad group status', 'Max CPC',
+        'Campaign', 'Campaign Daily Budget', 'Campaign type', 'Bid Strategy type', 'Campaign status',
+        'Ad group', 'Ad group status', 'Max CPC',
         'Ad type', 'Final URL', 'Path 1', 'Path 2'
     ];
     for (let i = 1; i <= 15; i++) headers.push(`Headline ${i}`);
@@ -607,32 +615,40 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     const csvRows = [];
     csvRows.push(headers.map(escapeCsv).join(','));
 
-    // Dòng 1: Nhóm quảng cáo
+    // Dòng 1: Tạo Chiến dịch (Bắt buộc để Google Ads Web nhận diện và không báo lỗi "The entity does not exist for Campaign")
+    const rowCampaign = new Array(headers.length).fill('');
+    rowCampaign[0] = effectiveCampaignName;
+    rowCampaign[1] = '100000'; // Ngân sách hàng ngày mặc định
+    rowCampaign[2] = 'Search';
+    rowCampaign[3] = 'Manual CPC';
+    rowCampaign[4] = 'Enabled';
+    csvRows.push(rowCampaign.map(escapeCsv).join(','));
+
+    // Dòng 2: Tạo Nhóm quảng cáo (Ad group)
     const rowAg = new Array(headers.length).fill('');
     rowAg[0] = effectiveCampaignName;
-    rowAg[1] = adGroupName;
-    rowAg[2] = 'Enabled';
-    rowAg[3] = 'Enabled';
-    rowAg[4] = effectiveMaxCpc;
+    rowAg[5] = adGroupName;
+    rowAg[6] = 'Enabled';
+    rowAg[7] = effectiveMaxCpc;
     csvRows.push(rowAg.map(escapeCsv).join(','));
 
-    // Dòng 2: Mẫu RSA
+    // Dòng 3: Tạo Mẫu quảng cáo thích ứng (Responsive search ad)
     const rowAd = new Array(headers.length).fill('');
     rowAd[0] = effectiveCampaignName;
-    rowAd[1] = adGroupName;
-    rowAd[5] = 'Responsive search ad';
-    rowAd[6] = product.url;
-    rowAd[7] = path1;
-    rowAd[8] = path2;
+    rowAd[5] = adGroupName;
+    rowAd[8] = 'Responsive search ad';
+    rowAd[9] = product.url;
+    rowAd[10] = path1;
+    rowAd[11] = path2;
     for (let i = 0; i < 15; i++) {
-        rowAd[9 + i] = adData.headlines[i] || '';
+        rowAd[12 + i] = adData.headlines[i] || '';
     }
     for (let i = 0; i < 4; i++) {
-        rowAd[24 + i] = adData.descriptions[i] || '';
+        rowAd[27 + i] = adData.descriptions[i] || '';
     }
     csvRows.push(rowAd.map(escapeCsv).join(','));
 
-    // Dòng 3..N: Từ khóa
+    // Dòng 4..N: Tạo Danh sách Từ khóa
     for (const kwRaw of adData.keywords) {
         const cleanKw = kwRaw.trim();
         let criterion = 'Broad';
@@ -647,16 +663,24 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
 
         const rowKw = new Array(headers.length).fill('');
         rowKw[0] = effectiveCampaignName;
-        rowKw[1] = adGroupName;
-        rowKw[4] = effectiveMaxCpc;
+        rowKw[5] = adGroupName;
+        rowKw[7] = effectiveMaxCpc;
         rowKw[headers.length - 2] = kwText;
         rowKw[headers.length - 1] = criterion;
         csvRows.push(rowKw.map(escapeCsv).join(','));
     }
 
-    // UTF-8 BOM (\uFEFF) để Excel hiển thị tiếng Việt chính xác
+    // Ghi file với UTF-8 BOM (\uFEFF)
     const csvContent = '\uFEFF' + csvRows.join('\r\n');
     fs.writeFileSync(csvFilePath, csvContent, 'utf8');
+
+    // Đồng bộ sang thư mục Documents nếu tồn tại để người dùng tiện tìm kiếm
+    try {
+        const docsExport = path.join(app.getPath('documents'), 'GoogleAdsExports');
+        if (!fs.existsSync(docsExport)) fs.mkdirSync(docsExport, { recursive: true });
+        const docsFilePath = path.join(docsExport, csvFileName);
+        fs.writeFileSync(docsFilePath, csvContent, 'utf8');
+    } catch (e) {}
 
     return {
         success: true,

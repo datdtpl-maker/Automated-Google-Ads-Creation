@@ -308,7 +308,40 @@ function setupEventListeners() {
     }
   });
 
-  // Nút sao chép
+  // Nút sao chép đường dẫn thư mục ảnh
+  const btnCopyImgPath = document.getElementById('btn_copy_product_images_path');
+  if (btnCopyImgPath) {
+    btnCopyImgPath.addEventListener('click', () => {
+      if (lastGeneratedResult && lastGeneratedResult.images_folder) {
+        navigator.clipboard.writeText(lastGeneratedResult.images_folder);
+        showToast('Đã sao chép đường dẫn thư mục ảnh vào Clipboard!', 'success');
+      }
+    });
+  }
+
+  // Nút sao chép đường dẫn file CSV
+  const btnCopyCsvPath = document.getElementById('btn_copy_csv_file_path');
+  if (btnCopyCsvPath) {
+    btnCopyCsvPath.addEventListener('click', () => {
+      if (lastGeneratedResult && lastGeneratedResult.csv_file_path) {
+        navigator.clipboard.writeText(lastGeneratedResult.csv_file_path);
+        showToast('Đã sao chép đường dẫn file CSV! (Bấm Ctrl+V tại ô File Name để chọn file)', 'success');
+      }
+    });
+  }
+
+  // Nút sao chép đường dẫn thư mục chứa CSV
+  const btnCopyCsvFolder = document.getElementById('btn_copy_csv_folder_path');
+  if (btnCopyCsvFolder) {
+    btnCopyCsvFolder.addEventListener('click', () => {
+      if (lastGeneratedResult && lastGeneratedResult.output_dir) {
+        navigator.clipboard.writeText(lastGeneratedResult.output_dir);
+        showToast('Đã sao chép đường dẫn thư mục chứa file CSV!', 'success');
+      }
+    });
+  }
+
+  // Nút sao chép nội dung văn bản
   document.getElementById('btn_copy_all_headlines').addEventListener('click', () => {
     if (!lastGeneratedResult) return;
     const text = lastGeneratedResult.ad_data.headlines.join('\n');
@@ -365,11 +398,13 @@ function selectProduct(p) {
   const linkEl = document.getElementById('p_url');
   linkEl.href = p.permalink || '#';
 
-  // Tự động tạo tên chiến dịch gợi ý
-  const today = new Date();
-  const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-  const shortTitle = p.name.split('–')[0].split('-')[0].trim();
-  document.getElementById('input_campaign_name').value = `Chiến dịch ${shortTitle} | ${todayStr}`;
+  // Giữ nguyên tên chiến dịch người dùng đã nhập, chỉ điền nếu ô đang trống
+  const currentCamp = document.getElementById('input_campaign_name').value.trim();
+  if (!currentCamp) {
+    const today = new Date();
+    const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+    document.getElementById('input_campaign_name').value = `Chiến dịch sản phẩm Web Derma | ${todayStr}`;
+  }
 
   updateTerminal(`● Đã chọn sản phẩm: "${p.name}". Bấm "Tạo chiến dịch" để xử lý.`);
   showToast(`Đã chọn: ${p.name}`, 'success');

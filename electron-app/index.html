@@ -312,21 +312,26 @@
                 Hình ảnh từ WooCommerce đã được tải về máy và lưu vào thư mục riêng mang tên sản phẩm.
               </div>
             </div>
-            <button class="btn-header active" id="btn_open_current_product_images">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-              Mở Thư Mục Ảnh Này Trên Windows
-            </button>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-header" id="btn_copy_product_images_path" style="background: var(--google-blue-subtle); color: var(--google-blue-text); border-color: rgba(26, 115, 232, 0.35);">
+                📋 Sao Chép Đường Dẫn Thư Mục Ảnh
+              </button>
+              <button class="btn-header active" id="btn_open_current_product_images">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                Mở Thư Mục
+              </button>
+            </div>
           </div>
           <div class="images-gallery" id="grid_images"></div>
         </div>
 
         <!-- Tab 6: CSV Export -->
         <div class="tab-pane" id="tab_csv">
-          <div style="background: var(--bg-subtle); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; gap: 16px; max-width: 650px;">
+          <div style="background: var(--bg-subtle); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; gap: 16px; max-width: 720px;">
             <div>
               <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary);">File CSV All-in-One chuẩn Google Ads Bulk Upload</h4>
               <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5;">
-                File chứa đầy đủ: Khởi tạo Nhóm (Ad Group), Quảng cáo thích ứng (RSA) và Danh sách Từ khóa. Định dạng UTF-8 BOM sẵn sàng nạp trực tiếp vào Google Ads Web hoặc Google Ads Editor mà không bị lỗi font tiếng Việt.
+                File chứa đầy đủ: Khởi tạo Chiến dịch (Campaign với Budget và Search Network), Nhóm (Ad Group), Quảng cáo thích ứng (RSA) và Danh sách Từ khóa. Sẵn sàng tải lên trực tiếp vào Google Ads mà không báo lỗi thiếu chiến dịch.
               </p>
             </div>
 
@@ -334,13 +339,18 @@
               --
             </div>
 
-            <div style="display: flex; gap: 10px;">
-              <button class="btn-generate" id="btn_show_csv_in_folder" style="height: 38px; padding: 0 18px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                Mở Trong Thư Mục Windows Explorer
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+              <button class="btn-generate" id="btn_copy_csv_file_path" style="height: 38px; padding: 0 18px;">
+                📋 Sao Chép Đường Dẫn File CSV
+              </button>
+              <button class="btn-header" id="btn_copy_csv_folder_path">
+                📂 Sao Chép Thư Mục CSV
+              </button>
+              <button class="btn-header" id="btn_show_csv_in_folder">
+                ↗ Mở Thư Mục Trong Explorer
               </button>
               <button class="btn-header" id="btn_copy_all_ad_text">
-                📋 Sao Chép Toàn Bộ Văn Bản
+                📋 Sao Chép Text
               </button>
             </div>
           </div>
