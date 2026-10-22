@@ -1,7 +1,7 @@
 {
   "name": "google-ads-auto-generator",
   "version": "1.0.0",
-  "description": "Google Ads Campaign Auto-Generator",
+  "description": "Google Ads Campaign Auto-Generator Pro Desktop App",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -10,7 +10,8 @@
   "keywords": [
     "google-ads",
     "automation",
-    "electron"
+    "electron",
+    "windows"
   ],
   "author": "Khai Hoan Derma",
   "license": "ISC",
@@ -26,6 +27,10 @@
     },
     "files": [
       "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "styles.css",
       "icon.ico",
       "icon.png"
     ],

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Google Ads Campaign Auto-Generator Pro</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <img src="icon.png" alt="Google Ads Icon">
+      <div class="header-title-box">
+        <h1>Google Ads Campaign Auto-Generator <span class="badge-pro">PRO DESKTOP</span></h1>
+      </div>
+    </div>
+
+    <!-- Live Status Indicators -->
+    <div class="header-status">
+      <div class="status-pill" id="status_gemini" title="Trạng thái kết nối Google Gemini AI">
+        <span class="status-dot" id="dot_gemini"></span>
+        <span id="text_gemini">Gemini: Đang kiểm tra...</span>
+      </div>
+      <div class="status-pill" id="status_wc" title="Trạng thái kết nối WooCommerce">
+        <span class="status-dot" id="dot_wc"></span>
+        <span id="text_wc">WooCommerce: Đang kiểm tra...</span>
+      </div>
+    </div>
+
+    <!-- Quick Action Header Buttons -->
+    <div class="header-actions">
+      <button class="btn-header" id="btn_open_img_folder" title="Mở thư mục lưu ảnh trong Windows Explorer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+        Mở Thư Mục Ảnh
+      </button>
+      <button class="btn-header" id="btn_open_csv_folder" title="Mở thư mục xuất CSV trong Windows Explorer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        Mở Thư Mục CSV
+      </button>
+      <button class="btn-header active" id="btn_toggle_sidebar" title="Ẩn / Hiện thanh Cấu hình hệ thống">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+        Cấu Hình
+      </button>
+    </div>
+  </header>
+
+  <!-- App Body Layout -->
+  <div class="app-body">
+
+    <!-- Collapsible Settings Sidebar -->
+    <aside class="settings-sidebar" id="sidebar_settings">
+      <div class="sidebar-header">
+        <h2>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          Cấu Hình Hệ Thống
+        </h2>
+        <button class="btn-input-action" id="btn_close_sidebar" title="Thu gọn panel">✕</button>
+      </div>
+
+      <div class="sidebar-content">
+
+        <!-- 1. Cấu hình Gemini AI -->
+        <div class="config-section">
+          <div class="config-section-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            Google Gemini AI
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Gemini API Key</label>
+            <div class="input-with-button">
+              <input type="password" id="cfg_gemini_key" class="form-input" placeholder="Nhập khóa API Gemini...">
+              <button class="btn-input-action" id="btn_toggle_key_eye">👁</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Mô hình AI</label>
+            <select id="cfg_gemini_model" class="form-select">
+              <option value="gemini-2.5-flash" selected>gemini-2.5-flash (Khuyên dùng - Nhanh & Chuẩn)</option>
+              <option value="gemini-2.5-pro">gemini-2.5-pro (Chuyên sâu)</option>
+              <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+              <option value="gemini-1.5-pro">gemini-1.5-pro</option>
+              <option value="gemini-3.8-flash">gemini-3.8-flash (Tùy chọn)</option>
+            </select>
+          </div>
+
+          <button class="btn-test" id="btn_test_gemini">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            Kiểm tra kết nối Gemini Key
+          </button>
+        </div>
+
+        <!-- 2. Cấu hình WooCommerce Website -->
+        <div class="config-section">
+          <div class="config-section-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            Website WooCommerce
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">URL Website</label>
+            <input type="text" id="cfg_wp_url" class="form-input" placeholder="https://khaihoanderma.com">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Tài khoản (Username / Consumer Key)</label>
+            <input type="text" id="cfg_wp_user" class="form-input" placeholder="admin">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Mật khẩu ứng dụng (App Password / Secret)</label>
+            <div class="input-with-button">
+              <input type="password" id="cfg_wp_password" class="form-input" placeholder="xxxx xxxx xxxx xxxx">
+              <button class="btn-input-action" id="btn_toggle_pass_eye">👁</button>
+            </div>
+          </div>
+
+          <button class="btn-test" id="btn_test_wc">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            Kiểm tra kết nối Website
+          </button>
+        </div>
+
+        <!-- 3. Thư mục Lưu Trữ & Giá Thầu Mặc Định -->
+        <div class="config-section">
+          <div class="config-section-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            Lưu Trữ & Giá Thầu
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Thư mục ảnh chính (Root Directory)</label>
+            <div class="input-with-button">
+              <input type="text" id="cfg_root_images_dir" class="form-input" placeholder="D:\Project Anti\Auto-Google-Ads\output\images">
+              <button class="btn-input-action" id="btn_browse_folder" title="Mở hộp thoại chọn thư mục Windows">
+                📂 Chọn
+              </button>
+              <button class="btn-input-action" id="btn_open_cfg_folder" title="Mở thư mục trong Explorer">
+                ↗ Mở
+              </button>
+            </div>
+            <p style="font-size: 10px; color: var(--text-dim); margin-top: 2px;">
+              * Ứng dụng sẽ tự động tạo thư mục con mang tên sản phẩm bên trong thư mục này.
+            </p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Giá thầu tối đa mặc định (Max CPC - VNĐ)</label>
+            <input type="number" id="cfg_max_cpc" class="form-input" value="2000" step="100">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Tên chiến dịch mặc định</label>
+            <input type="text" id="cfg_default_camp_name" class="form-input" placeholder="Chiến dịch sản phẩm Web Derma">
+          </div>
+        </div>
+
+      </div>
+
+      <div class="sidebar-footer">
+        <button class="btn-save-cfg" id="btn_save_config">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+          LƯU CẤU HÌNH HỆ THỐNG
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content Workspace -->
+    <main class="main-workspace">
+
+      <!-- 1. Search Box with Autocomplete Dropdown -->
+      <section class="search-container">
+        <div class="search-input-wrapper">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          <input type="text" id="input_product_search" class="search-input" placeholder="Gõ tên sản phẩm để tìm kiếm từ WooCommerce (ví dụ: Lozivate, Retinol, Kem chống nắng...)" autocomplete="off">
+          
+          <!-- Dropdown Results -->
+          <div class="search-dropdown" id="search_dropdown"></div>
+        </div>
+      </section>
+
+      <!-- 2. Selected Product Card -->
+      <section class="selected-product-card" id="card_selected_product">
+        <img src="icon.png" alt="Ảnh sản phẩm" class="product-thumb" id="p_thumb">
+        <div class="product-details">
+          <h3 class="product-title" id="p_title">Chưa chọn sản phẩm nào</h3>
+          <div class="product-badges">
+            <span class="p-badge price" id="p_price">Giá: --</span>
+            <span class="p-badge category" id="p_cat">Danh mục: --</span>
+            <a href="#" target="_blank" class="p-badge link" id="p_url" title="Bấm để mở liên kết sản phẩm">Xem trang web ↗</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Campaign Generation Bar -->
+      <section class="campaign-bar">
+        <div class="form-group">
+          <label class="form-label">Tên chiến dịch Google Ads</label>
+          <input type="text" id="input_campaign_name" class="form-input" placeholder="Chiến dịch sản phẩm Web Derma | 22/10">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Giá thầu Max CPC (VNĐ)</label>
+          <input type="number" id="input_max_cpc" class="form-input" value="2000" step="100">
+        </div>
+
+        <button class="btn-generate" id="btn_generate_campaign">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <span>TẠO CHIẾN DỊCH & TẢI ẢNH</span>
+        </button>
+      </section>
+
+      <!-- 4. Terminal Progress Box -->
+      <div class="terminal-box" id="terminal_box">
+        <div id="terminal_text">● Trạng thái: Sẵn sàng làm việc. Chọn sản phẩm và bấm "Tạo chiến dịch".</div>
+        <div id="terminal_time">--:--:--</div>
+      </div>
+
+      <!-- 5. Results Tabs & Content -->
+      <section class="results-container" id="results_section" style="display: none;">
+        <nav class="results-nav">
+          <button class="nav-tab active" data-tab="tab_preview">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            Xem Trước Google Search Ad
+          </button>
+          <button class="nav-tab" data-tab="tab_headlines">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
+            15 Tiêu Đề (Headlines)
+          </button>
+          <button class="nav-tab" data-tab="tab_descriptions">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            4 Đoạn Mô Tả (Descriptions)
+          </button>
+          <button class="nav-tab" data-tab="tab_keywords">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+            Từ Khóa (Keywords)
+          </button>
+          <button class="nav-tab" data-tab="tab_images">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            Ảnh Đã Tải Về Máy (<span id="res_img_count">0</span>)
+          </button>
+          <button class="nav-tab" data-tab="tab_csv">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Xuất File CSV
+          </button>
+        </nav>
+
+        <!-- Tab 1: Preview -->
+        <div class="tab-pane active" id="tab_preview">
+          <div class="ad-preview-card">
+            <div class="ad-sponsor-line">
+              <span class="ad-badge">Được tài trợ</span> • 
+              <span class="ad-url-display" id="mock_display_url">https://khaihoanderma.com/chinh-hang/gia-tot</span>
+            </div>
+            <a class="ad-headline-link" id="mock_headline" href="#" onclick="return false;">
+              Tiêu Đề 1 | Tiêu Đề 2 | Tiêu Đề 3
+            </a>
+            <div class="ad-desc-text" id="mock_description">
+              Mô tả ngắn gọn về sản phẩm, công dụng nổi bật và cam kết chất lượng chính hãng từ dược sĩ.
+            </div>
+            <div class="ad-sitelinks-grid">
+              <div>
+                <div class="ad-sitelink-title">Dược Sĩ Tư Vấn Da Liễu</div>
+                <div class="ad-sitelink-desc">Hỗ trợ 24/7 nhiệt tình, chuẩn y khoa</div>
+              </div>
+              <div>
+                <div class="ad-sitelink-title">Giao Nhanh Toàn Quốc</div>
+                <div class="ad-sitelink-desc">Kiểm tra hàng trước khi thanh toán</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Headlines -->
+        <div class="tab-pane" id="tab_headlines">
+          <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; color: var(--text-muted);">Tất cả 15 tiêu đề đã được hậu kiểm không quá 30 ký tự chuẩn Google Ads:</span>
+            <button class="btn-header" id="btn_copy_all_headlines">📋 Copy Tất Cả Tiêu Đề</button>
+          </div>
+          <div class="assets-grid" id="grid_headlines"></div>
+        </div>
+
+        <!-- Tab 3: Descriptions -->
+        <div class="tab-pane" id="tab_descriptions">
+          <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; color: var(--text-muted);">Tất cả 4 đoạn mô tả đã được hậu kiểm không quá 90 ký tự:</span>
+            <button class="btn-header" id="btn_copy_all_descriptions">📋 Copy Tất Cả Mô Tả</button>
+          </div>
+          <div class="assets-grid" id="grid_descriptions"></div>
+        </div>
+
+        <!-- Tab 4: Keywords -->
+        <div class="tab-pane" id="tab_keywords">
+          <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 12px; color: var(--text-muted);">Từ khóa tìm kiếm chuyển đổi cao (Phrase match & Exact match):</span>
+            <button class="btn-header" id="btn_copy_all_keywords">📋 Copy Tất Cả Từ Khóa</button>
+          </div>
+          <div class="assets-grid" id="grid_keywords"></div>
+        </div>
+
+        <!-- Tab 5: Images -->
+        <div class="tab-pane" id="tab_images">
+          <div style="display: flex; justify-content: space-between; align-items: center; background: #0b1120; padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <div>
+              <div style="font-size: 13px; font-weight: 600; color: #fff;">
+                📁 Thư mục ảnh sản phẩm: <span id="label_img_folder" style="color: #38bdf8; font-family: var(--font-mono); font-size: 12px;">--</span>
+              </div>
+              <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">
+                Ảnh gốc từ WooCommerce đã được tải về máy tính và lưu trữ có tổ chức.
+              </div>
+            </div>
+            <button class="btn-header active" id="btn_open_current_product_images">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              Mở Thư Mục Ảnh Này Trên Windows
+            </button>
+          </div>
+          <div class="images-gallery" id="grid_images"></div>
+        </div>
+
+        <!-- Tab 6: CSV Export -->
+        <div class="tab-pane" id="tab_csv">
+          <div style="background: #0b1120; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 20px; display: flex; flex-direction: column; gap: 16px; max-width: 600px;">
+            <div>
+              <h4 style="font-size: 14px; font-weight: 700; color: #fff;">File CSV All-in-One chuẩn Google Ads Bulk Upload</h4>
+              <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+                File chứa đầy đủ cấu trúc: Tạo Nhóm (Ad Group), Quảng cáo thích ứng (RSA), và Danh sách Từ khóa. Định dạng UTF-8 BOM sẵn sàng nạp trực tiếp vào Google Ads Web hoặc Google Ads Editor.
+              </p>
+            </div>
+
+            <div style="font-family: var(--font-mono); font-size: 12px; background: #060911; padding: 10px 14px; border-radius: 6px; border: 1px solid #1a253c; color: #34d399;" id="label_csv_file_path">
+              --
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+              <button class="btn-generate" id="btn_show_csv_in_folder" style="height: 38px; padding: 0 18px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                Mở Trong Thư Mục Windows Explorer
+              </button>
+              <button class="btn-header" id="btn_copy_all_ad_text">
+                📋 Sao Chép Toàn Bộ Văn Bản
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Toast Notifications Container -->
+  <div class="toast-container" id="toast_container"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
