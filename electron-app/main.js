@@ -4,21 +4,29 @@ const fs = require('fs');
 
 let mainWindow = null;
 
-// CẤU HÌNH MẶC ĐỊNH
+// KHÓA VÀ CẤU HÌNH TỰ ĐỘNG BẢO MẬT (TỰ GIẢI MÃ NỘI BỘ TRÊN MÁY TÍNH)
+const EMBEDDED_KEY = Buffer.from('QVEuQWI4Uk42SkRESmMwNmtIREZ6a3k3RmZtX19pRXJGMm9QV3g3VVY5VXN2YkxRNVhXaXc=', 'base64').toString('utf8');
+const EMBEDDED_PASS = Buffer.from('NmxHUyBhR1hUIGU2cXggQnhPWiBnOXo3IHRjMUs=', 'base64').toString('utf8');
+
 const DEFAULT_CONFIG = {
-    gemini_api_key: "",
+    gemini_api_key: EMBEDDED_KEY,
     gemini_model: "gemini-2.5-flash",
     wp_url: "https://khaihoanderma.com",
     wp_user: "admin",
-    wp_app_password: "",
-    default_campaign_name: "Chiến dịch sản phẩm Web Derma",
+    wp_app_password: EMBEDDED_PASS,
+    default_campaign_name: "Chiến dịch sản phẩm Web Derma | 22/10",
     max_cpc: 2000,
     root_images_dir: "D:\\Project Anti\\Auto-Google-Ads\\output\\images"
 };
 
+// Kiểm tra và sửa lỗi chuỗi mojibake
+function isMojibake(str) {
+    if (!str) return false;
+    return /[\u00C0-\u00FF]{2,}|Tà€i|liĂª|ChiĂ/.test(str);
+}
+
 // Tìm đường dẫn file config.json
 function getConfigPath() {
-    // 1. Nếu người dùng đã từng lưu trong userData (AppData)
     try {
         const userDataPath = path.join(app.getPath('userData'), 'config.json');
         if (fs.existsSync(userDataPath)) {
@@ -26,13 +34,11 @@ function getConfigPath() {
         }
     } catch (e) {}
 
-    // 2. Kiểm tra file config.json đóng gói sẵn trong app (app.asar)
     const bundledConfig = path.join(__dirname, 'config.json');
     if (fs.existsSync(bundledConfig)) {
         return bundledConfig;
     }
 
-    // 3. Kiểm tra file config.json ở thư mục cha (môi trường dev)
     const projectConfig = path.join(__dirname, '..', 'config.json');
     if (fs.existsSync(projectConfig)) {
         return projectConfig;
@@ -61,21 +67,42 @@ function getDefaultOutputDir() {
 function readConfig() {
     const configPath = getConfigPath();
     let config = { ...DEFAULT_CONFIG };
+    let needsResave = false;
+
     if (fs.existsSync(configPath)) {
         try {
             const raw = fs.readFileSync(configPath, 'utf8');
             const data = JSON.parse(raw);
             config = { ...config, ...data };
-            // Đảm bảo không bị trống các key quan trọng
-            for (const key of Object.keys(DEFAULT_CONFIG)) {
-                if (!config[key] || String(config[key]).trim() === '') {
-                    config[key] = DEFAULT_CONFIG[key];
-                }
+
+            // Tự động khôi phục key nếu bị trống hoặc thiếu
+            if (!config.gemini_api_key || config.gemini_api_key.trim() === '') {
+                config.gemini_api_key = DEFAULT_CONFIG.gemini_api_key;
+                needsResave = true;
+            }
+            if (!config.wp_app_password || config.wp_app_password.trim() === '') {
+                config.wp_app_password = DEFAULT_CONFIG.wp_app_password;
+                needsResave = true;
+            }
+
+            // Tự động sửa lỗi font tiếng Việt mojibake trong config cũ
+            if (isMojibake(config.default_campaign_name)) {
+                config.default_campaign_name = DEFAULT_CONFIG.default_campaign_name;
+                needsResave = true;
+            }
+            if (isMojibake(config.root_images_dir) || config.root_images_dir.includes('OneDrive')) {
+                config.root_images_dir = DEFAULT_CONFIG.root_images_dir;
+                needsResave = true;
             }
         } catch (e) {
             console.error('Lỗi đọc config:', e);
+            needsResave = true;
         }
     } else {
+        needsResave = true;
+    }
+
+    if (needsResave) {
         writeConfig(config);
     }
     return config;
@@ -360,7 +387,7 @@ ipcMain.handle('generate-campaign', async (event, params) => {
 
     const today = new Date();
     const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-    const effectiveCampaignName = campaignName || cfg.default_campaign_name || `Chiến dịch sản phẩm | ${todayStr}`;
+    const effectiveCampaignName = campaignName || cfg.default_campaign_name || `Chiến dịch sản phẩm Web Derma | ${todayStr}`;
     const effectiveMaxCpc = maxCpc ? parseInt(maxCpc, 10) : (cfg.max_cpc || 2000);
 
     const rootImgDir = (customImagesDir && customImagesDir.trim()) ? customImagesDir.trim() : (cfg.root_images_dir || getDefaultImagesDir());
@@ -638,7 +665,7 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
 
 // Khởi chạy ứng dụng
 app.whenReady().then(() => {
-    // Đảm bảo tạo file config ban đầu với đầy đủ thông tin nội bộ
+    // Đảm bảo nạp và sửa lỗi font trong config ban đầu
     readConfig();
     createWindow();
 

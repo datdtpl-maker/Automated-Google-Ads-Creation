@@ -39,26 +39,34 @@ document.addEventListener('DOMContentLoaded', async () => {
   await checkSystemHealth();
 });
 
+// Kiểm tra và khử mojibake
+function cleanSafeText(str, fallback) {
+  if (!str || /[\u00C0-\u00FF]{2,}|Tà€i|liĂª|ChiĂ/.test(str)) return fallback;
+  return str;
+}
+
 // 1. Nạp và điền cấu hình mặc định nội bộ
 async function loadAndApplyConfig() {
   try {
     const cfg = await window.electronAPI.getConfig();
     currentConfig = cfg;
 
-    document.getElementById('cfg_gemini_key').value = cfg.gemini_api_key || '';
-    if (cfg.gemini_model) document.getElementById('cfg_gemini_model').value = cfg.gemini_model;
-    document.getElementById('cfg_wp_url').value = cfg.wp_url || '';
-    document.getElementById('cfg_wp_user').value = cfg.wp_user || '';
-    document.getElementById('cfg_wp_password').value = cfg.wp_app_password || '';
-    document.getElementById('cfg_root_images_dir').value = cfg.root_images_dir || '';
-    document.getElementById('cfg_max_cpc').value = cfg.max_cpc || 2000;
-    document.getElementById('cfg_default_camp_name').value = cfg.default_campaign_name || '';
-
-    // Điền giá trị mặc định trên thanh chiến dịch chính
     const today = new Date();
     const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-    const defCamp = cfg.default_campaign_name || `Chiến dịch sản phẩm Web Derma | ${todayStr}`;
-    document.getElementById('input_campaign_name').value = defCamp;
+    const cleanCampName = cleanSafeText(cfg.default_campaign_name, `Chiến dịch sản phẩm Web Derma | ${todayStr}`);
+    const cleanImagesDir = cleanSafeText(cfg.root_images_dir, 'D:\\Project Anti\\Auto-Google-Ads\\output\\images');
+
+    document.getElementById('cfg_gemini_key').value = cfg.gemini_api_key || '';
+    if (cfg.gemini_model) document.getElementById('cfg_gemini_model').value = cfg.gemini_model;
+    document.getElementById('cfg_wp_url').value = cfg.wp_url || 'https://khaihoanderma.com';
+    document.getElementById('cfg_wp_user').value = cfg.wp_user || 'admin';
+    document.getElementById('cfg_wp_password').value = cfg.wp_app_password || '';
+    document.getElementById('cfg_root_images_dir').value = cleanImagesDir;
+    document.getElementById('cfg_max_cpc').value = cfg.max_cpc || 2000;
+    document.getElementById('cfg_default_camp_name').value = cleanCampName;
+
+    // Điền giá trị mặc định trên thanh chiến dịch chính
+    document.getElementById('input_campaign_name').value = cleanCampName;
     document.getElementById('input_max_cpc').value = cfg.max_cpc || 2000;
   } catch (err) {
     console.error('Lỗi nạp config:', err);
