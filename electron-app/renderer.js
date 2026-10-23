@@ -543,19 +543,75 @@ function setupEventListeners() {
   // Nút tạo chiến dịch
   document.getElementById('btn_generate_campaign').addEventListener('click', generateCampaign);
 
-  // Tab switching trong kết quả
+  // Hàm chuyển tab kết quả an toàn và đồng bộ
+  function switchResultTab(tabId) {
+    if (!tabId) return;
+
+    const tabs = document.querySelectorAll('.nav-tab');
+    const panes = document.querySelectorAll('.tab-pane');
+
+    tabs.forEach(t => {
+      const isTarget = t.getAttribute('data-tab') === tabId;
+      t.classList.toggle('active', isTarget);
+    });
+
+    panes.forEach(p => {
+      const isTarget = p.id === tabId;
+      p.classList.toggle('active', isTarget);
+    });
+
+    // Đồng bộ trạng thái thẻ chip trong Progress Card
+    const stepAi = document.getElementById('step_ai');
+    const stepImg = document.getElementById('step_img');
+    const stepCsv = document.getElementById('step_csv');
+
+    if (stepAi && stepImg && stepCsv) {
+      stepAi.classList.toggle('active', ['tab_preview', 'tab_headlines', 'tab_descriptions', 'tab_keywords'].includes(tabId));
+      stepImg.classList.toggle('active', tabId === 'tab_images');
+      stepCsv.classList.toggle('active', tabId === 'tab_csv');
+    }
+  }
+
+  // Tab switching qua thanh điều hướng
   const tabs = document.querySelectorAll('.nav-tab');
   tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => t.classList.remove('active'));
-      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-      
-      tab.classList.add('active');
+    tab.addEventListener('click', (e) => {
+      e.preventDefault();
       const targetId = tab.getAttribute('data-tab');
-      const pane = document.getElementById(targetId);
-      if (pane) pane.classList.add('active');
+      switchResultTab(targetId);
     });
   });
+
+  // Event delegation cho results-nav phòng trường hợp icon/text con bị bấm
+  const resultsNav = document.querySelector('.results-nav');
+  if (resultsNav) {
+    resultsNav.addEventListener('click', (e) => {
+      const tabBtn = e.target.closest('.nav-tab');
+      if (tabBtn) {
+        e.preventDefault();
+        const targetId = tabBtn.getAttribute('data-tab');
+        switchResultTab(targetId);
+      }
+    });
+  }
+
+  // Cho phép bấm trực tiếp vào các ô tiến trình để chuyển tab kiểm tra nhanh
+  const stepAiEl = document.getElementById('step_ai');
+  const stepImgEl = document.getElementById('step_img');
+  const stepCsvEl = document.getElementById('step_csv');
+
+  if (stepAiEl) {
+    stepAiEl.title = 'Bấm để kiểm tra Tiêu đề, Mô tả & Từ khóa AI';
+    stepAiEl.addEventListener('click', () => switchResultTab('tab_headlines'));
+  }
+  if (stepImgEl) {
+    stepImgEl.title = 'Bấm để kiểm tra Ảnh đã tải về';
+    stepImgEl.addEventListener('click', () => switchResultTab('tab_images'));
+  }
+  if (stepCsvEl) {
+    stepCsvEl.title = 'Bấm để kiểm tra File CSV đã xuất';
+    stepCsvEl.addEventListener('click', () => switchResultTab('tab_csv'));
+  }
 
   // Nút mở thư mục ảnh sản phẩm hiện tại
   document.getElementById('btn_open_current_product_images').addEventListener('click', async () => {
