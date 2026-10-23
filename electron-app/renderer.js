@@ -487,7 +487,7 @@ function setupEventListeners() {
   }
 
   // Filter tabs trong Notion Modal
-  ['Chờ tạo', 'Chưa xử lý', 'Đã xuất CSV', 'all'].forEach(st => {
+  ['Chờ tạo', 'Đang chạy Google Ads', 'Chưa xử lý', 'all'].forEach(st => {
     const btnTab = document.querySelector(`.notion-tab-btn[data-status="${st}"]`);
     if (btnTab) {
       btnTab.addEventListener('click', () => {
@@ -1264,19 +1264,19 @@ async function loadNotionTasks() {
 function updateNotionFilterCounts() {
   const total = notionTasksList.length;
   const pending = notionTasksList.filter(t => t.status === 'Chờ tạo').length;
+  const running = notionTasksList.filter(t => t.status === 'Đang chạy Google Ads').length;
   const unprocessed = notionTasksList.filter(t => t.status === 'Chưa xử lý').length;
-  const exported = notionTasksList.filter(t => t.status === 'Đã xuất CSV').length;
 
   const elAll = document.getElementById('count_all');
   const elPending = document.getElementById('count_pending');
+  const elRunning = document.getElementById('count_running');
   const elUnprocessed = document.getElementById('count_unprocessed');
-  const elExported = document.getElementById('count_exported');
   const hubPendingBadge = document.getElementById('hub_pending_badge');
 
   if (elAll) elAll.innerText = total;
   if (elPending) elPending.innerText = pending;
+  if (elRunning) elRunning.innerText = running;
   if (elUnprocessed) elUnprocessed.innerText = unprocessed;
-  if (elExported) elExported.innerText = exported;
 
   if (hubPendingBadge) {
     hubPendingBadge.innerText = `${pending} Chờ tạo`;
@@ -1518,8 +1518,8 @@ async function executeNotionCampaignsFlow() {
       progressMainStatus.innerText = '✓ Đã tạo xong toàn bộ chiến dịch và cập nhật Notion!';
       progressDetailStatus.innerText = `File CSV Master: ${res.csv_file_name}`;
 
-      showToast(`Xuất CSV Master thành công & Đã cập nhật ${selectedTasks.length} sản phẩm lên Notion!`, 'success');
-      updateTerminal(`✓ Hoàn tất! File CSV Master: "${res.csv_file_name}". Đã cập nhật Notion thành công.`);
+      showToast(`Xuất CSV thành công! Đã tự động chuyển ${selectedTasks.length} sản phẩm sang "Đang chạy Google Ads" trên Notion!`, 'success');
+      updateTerminal(`✓ Hoàn tất! File CSV Master: "${res.csv_file_name}". Trạng thái Notion đã cập nhật: "Đang chạy Google Ads".`);
 
       lastGeneratedResult = res;
       displayResults(res);

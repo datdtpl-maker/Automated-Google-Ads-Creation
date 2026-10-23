@@ -1395,7 +1395,7 @@ ipcMain.handle('run-notion-campaigns', async (event, params) => {
         for (const p of productsToProcess) {
             if (p.notion_page_id) {
                 try {
-                    await updateNotionTaskProperties(p.notion_page_id, 'Đã xuất CSV', batchRes.csv_file_name);
+                    await updateNotionTaskProperties(p.notion_page_id, 'Đang chạy Google Ads', batchRes.csv_file_name);
                 } catch (e) {
                     console.warn(`Lỗi update Notion row ${p.notion_page_id}:`, e.message);
                 }
