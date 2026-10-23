@@ -304,42 +304,205 @@ ipcMain.handle('test-wc', async (event, { wp_url, wp_user, wp_app_password }) =>
     }
 });
 
-// 7. Tìm kiếm sản phẩm WooCommerce
-ipcMain.handle('search-products', async (event, keyword) => {
+// 7. Quản lý Cache Sản Phẩm Local (Cực nhanh & Tìm kiếm siêu chính xác)
+let memoryProductsCache = [];
+
+function getProductsCachePath() {
+    try {
+        return path.join(app.getPath('userData'), 'products_cache.json');
+    } catch (e) {
+        return path.join(__dirname, 'products_cache.json');
+    }
+}
+
+function loadProductsFromDisk() {
+    try {
+        const p = getProductsCachePath();
+        if (fs.existsSync(p)) {
+            const data = fs.readFileSync(p, 'utf8');
+            memoryProductsCache = JSON.parse(data);
+            return memoryProductsCache;
+        }
+    } catch (e) {
+        console.warn('Lỗi đọc cache sản phẩm:', e.message);
+    }
+    return [];
+}
+
+async function syncAllProducts(force = false) {
+    if (!force && memoryProductsCache.length > 0) {
+        return memoryProductsCache;
+    }
+
     try {
         const cfg = readConfig();
         const url = (cfg.wp_url || '').replace(/\/+$/, '');
         const auth = Buffer.from(`${cfg.wp_user}:${cfg.wp_app_password}`).toString('base64');
+        if (!url || !cfg.wp_app_password) return memoryProductsCache;
 
-        let endpoint = `${url}/wp-json/wc/v3/products?per_page=12&status=publish`;
-        if (keyword && keyword.trim().length > 0) {
-            endpoint = `${url}/wp-json/wc/v3/products?search=${encodeURIComponent(keyword.trim())}&per_page=12&status=publish`;
+        const allProducts = [];
+        let page = 1;
+        let hasMore = true;
+
+        while (hasMore && page <= 10) {
+            const endpoint = `${url}/wp-json/wc/v3/products?per_page=100&page=${page}&status=publish`;
+            const res = await fetch(endpoint, {
+                headers: {
+                    'Authorization': `Basic ${auth}`,
+                    'User-Agent': 'GoogleAdsAutoGenerator/1.0'
+                },
+                signal: AbortSignal.timeout(15000)
+            });
+
+            if (!res.ok) break;
+            const items = await res.json();
+            if (!Array.isArray(items) || items.length === 0) {
+                hasMore = false;
+                break;
+            }
+
+            for (const p of items) {
+                allProducts.push({
+                    id: p.id,
+                    name: p.name,
+                    price: p.price ? `${Number(p.price).toLocaleString('vi-VN')} đ` : 'Liên hệ',
+                    regular_price: p.regular_price,
+                    sale_price: p.sale_price,
+                    permalink: p.permalink,
+                    image: p.images && p.images.length > 0 ? p.images[0].src : '',
+                    categories: p.categories ? p.categories.map(c => c.name).join(', ') : '',
+                    images: p.images ? p.images.map(img => img.src) : [],
+                    short_description: cleanHtmlText(p.short_description || p.description)
+                });
+            }
+
+            if (items.length < 100) {
+                hasMore = false;
+            } else {
+                page++;
+            }
         }
 
-        const res = await fetch(endpoint, {
-            headers: {
-                'Authorization': `Basic ${auth}`,
-                'User-Agent': 'GoogleAdsAutoGenerator/1.0'
-            },
-            signal: AbortSignal.timeout(10000)
-        });
+        if (allProducts.length > 0) {
+            memoryProductsCache = allProducts;
+            try {
+                fs.writeFileSync(getProductsCachePath(), JSON.stringify(allProducts, null, 2), 'utf8');
+            } catch (err) {
+                console.warn('Lỗi ghi cache disk:', err.message);
+            }
+        }
+        return memoryProductsCache;
+    } catch (e) {
+        console.error('Lỗi syncAllProducts:', e.message);
+        return memoryProductsCache;
+    }
+}
 
-        if (!res.ok) return { success: false, error: `HTTP ${res.status}` };
-        const items = await res.json();
-        const simplified = items.map(p => ({
-            id: p.id,
-            name: p.name,
-            price: p.price ? `${Number(p.price).toLocaleString('vi-VN')} đ` : 'Liên hệ',
-            regular_price: p.regular_price,
-            sale_price: p.sale_price,
-            permalink: p.permalink,
-            image: p.images && p.images.length > 0 ? p.images[0].src : '',
-            categories: p.categories ? p.categories.map(c => c.name).join(', ') : '',
-            images: p.images ? p.images.map(img => img.src) : [],
-            short_description: cleanHtmlText(p.short_description || p.description)
-        }));
+function removeAccents(str) {
+    if (!str) return '';
+    return str.normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .replace(/[đĐ]/g, 'd')
+              .toLowerCase();
+}
 
-        return { success: true, products: simplified };
+function calculateProductRelevance(product, query) {
+    const qNorm = removeAccents(query.trim());
+    if (!qNorm) return 1;
+
+    const nameNorm = removeAccents(product.name || '');
+    const words = nameNorm.split(/[\s,–\-_+./()]+/);
+    let score = 0;
+
+    // 1. Khớp chính xác cụm từ trong tên sản phẩm (Ưu tiên cao nhất)
+    if (nameNorm.startsWith(qNorm)) {
+        score += 2000;
+    } else if (nameNorm.includes(qNorm)) {
+        score += 1000;
+    }
+
+    // 2. Khớp từng từ hoặc tiền tố của từ trong tiêu đề
+    for (const w of words) {
+        if (w === qNorm) {
+            score += 800;
+        } else if (w.startsWith(qNorm)) {
+            score += 500;
+        } else if (qNorm.length >= 3 && w.length >= qNorm.length) {
+            // Cho phép sai khác 1 ký tự khi gõ phím nhanh (ví dụ: mud -> munderm)
+            let diff = 0;
+            for (let i = 0; i < qNorm.length; i++) {
+                if (qNorm[i] !== w[i]) diff++;
+            }
+            if (diff <= 1) {
+                score += 350;
+            }
+        }
+    }
+
+    // 3. Nếu người dùng gõ nhiều từ (ví dụ: "tri mun munderm")
+    const qWords = qNorm.split(/\s+/).filter(Boolean);
+    if (qWords.length > 1) {
+        const allPresent = qWords.every(qw => nameNorm.includes(qw));
+        if (allPresent) score += 600;
+        else {
+            const matchesCount = qWords.filter(qw => nameNorm.includes(qw)).length;
+            score += matchesCount * 120;
+        }
+    }
+
+    // 4. Danh mục sản phẩm
+    const catNorm = removeAccents(product.categories || '');
+    if (catNorm.includes(qNorm)) score += 50;
+
+    return score;
+}
+
+// IPC: Đồng bộ toàn bộ sản phẩm thủ công
+ipcMain.handle('sync-products', async (event, force = true) => {
+    try {
+        const products = await syncAllProducts(force);
+        return { success: true, count: products.length };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+// IPC: Tìm kiếm sản phẩm siêu tốc trong bộ nhớ Local (< 5ms)
+ipcMain.handle('search-products', async (event, keyword) => {
+    try {
+        if (!memoryProductsCache || memoryProductsCache.length === 0) {
+            loadProductsFromDisk();
+            if (memoryProductsCache.length === 0) {
+                await syncAllProducts(false);
+            }
+        }
+
+        const query = (keyword || '').trim();
+        if (!query) {
+            return {
+                success: true,
+                products: memoryProductsCache.slice(0, 20),
+                total_cached: memoryProductsCache.length
+            };
+        }
+
+        const scored = [];
+        for (const p of memoryProductsCache) {
+            const score = calculateProductRelevance(p, query);
+            if (score > 0) {
+                scored.push({ p, score });
+            }
+        }
+
+        // Sắp xếp sản phẩm liên quan nhất lên đầu
+        scored.sort((a, b) => b.score - a.score);
+
+        const results = scored.slice(0, 30).map(s => s.p);
+        return {
+            success: true,
+            products: results,
+            total_cached: memoryProductsCache.length
+        };
     } catch (e) {
         return { success: false, error: e.message };
     }
@@ -774,7 +937,13 @@ ipcMain.handle('generate-campaign', async (event, params) => {
 app.whenReady().then(() => {
     // Đảm bảo nạp và sửa lỗi font trong config ban đầu
     readConfig();
+    loadProductsFromDisk();
     createWindow();
+
+    // Chạy ngầm đồng bộ cache sản phẩm sau khi cửa sổ sẵn sàng
+    setTimeout(() => {
+        syncAllProducts(false).catch(e => console.warn('Lỗi nền syncAllProducts:', e.message));
+    }, 1500);
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow();

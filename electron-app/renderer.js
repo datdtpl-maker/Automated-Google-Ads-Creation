@@ -38,6 +38,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadAndApplyConfig();
   await checkSystemHealth();
   updateSelectedProductsUI();
+
+  // Khởi động nhanh bộ nhớ cache sản phẩm local
+  try {
+    const res = await window.electronAPI.searchProducts('');
+    if (res && res.total_cached) {
+      const lbl = document.getElementById('label_sync_status');
+      if (lbl) lbl.innerText = `Đồng bộ SP (${res.total_cached})`;
+    }
+  } catch (e) {}
 });
 
 // Kiểm tra và khử mojibake
@@ -394,9 +403,111 @@ function setupEventListeners() {
     });
   }
 
-  // Tìm kiếm sản phẩm WooCommerce với Autocomplete & Multi-select Checkbox
+  // Nút đồng bộ sản phẩm từ website về máy tính
+  const btnSync = document.getElementById('btn_sync_products');
+  const labelSync = document.getElementById('label_sync_status');
+  if (btnSync) {
+    btnSync.addEventListener('click', async () => {
+      btnSync.classList.add('syncing');
+      labelSync.innerText = 'Đang đồng bộ...';
+      updateTerminal('⏳ Đang kết nối website tải toàn bộ danh mục sản phẩm...');
+      try {
+        const res = await window.electronAPI.syncProducts(true);
+        if (res.success) {
+          labelSync.innerText = `Đồng bộ SP (${res.count})`;
+          showToast(`Đã đồng bộ thành công ${res.count} sản phẩm từ website!`, 'success');
+          updateTerminal(`✓ Đã nạp ${res.count} sản phẩm vào bộ nhớ máy tính. Tìm kiếm siêu tốc!`);
+          // Cập nhật lại dropdown nếu đang mở
+          const query = searchInput.value.trim();
+          performSearch(query);
+        } else {
+          labelSync.innerText = 'Đồng bộ SP';
+          showToast('Lỗi khi đồng bộ sản phẩm: ' + (res.error || ''), 'error');
+        }
+      } catch (e) {
+        labelSync.innerText = 'Đồng bộ SP';
+        showToast('Lỗi kết nối: ' + e.message, 'error');
+      } finally {
+        btnSync.classList.remove('syncing');
+      }
+    });
+  }
+
+  // Tìm kiếm sản phẩm WooCommerce với In-Memory Smart Search (Siêu tốc < 5ms)
   const searchInput = document.getElementById('input_product_search');
   const searchDropdown = document.getElementById('search_dropdown');
+
+  async function performSearch(query) {
+    if (!query || query.length === 0) {
+      searchDropdown.style.display = 'none';
+      return;
+    }
+
+    const res = await window.electronAPI.searchProducts(query);
+    if (res.success && res.products.length > 0) {
+      searchDropdown.innerHTML = '';
+
+      // Thanh thao tác trên cùng dropdown
+      const topBar = document.createElement('div');
+      topBar.className = 'dropdown-top-bar';
+      topBar.innerHTML = `
+        <span>Tìm thấy ${res.products.length} sản phẩm phù hợp</span>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button type="button" class="btn-clear-batch" id="btn_dd_select_all" style="font-weight: 600; font-size: 11px; color: var(--google-blue); text-decoration: underline;">Chọn tất cả</button>
+          <button type="button" class="dropdown-done-btn" id="btn_dd_done">Xong</button>
+        </div>
+      `;
+      searchDropdown.appendChild(topBar);
+
+      topBar.querySelector('#btn_dd_select_all').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        selectAllFromSearchResults(res.products);
+        showToast(`Đã chọn tất cả ${res.products.length} sản phẩm trong kết quả`, 'success');
+      });
+
+      topBar.querySelector('#btn_dd_done').addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        searchDropdown.style.display = 'none';
+      });
+
+      // Danh sách sản phẩm được xếp hạng độ chính xác cao nhất lên đầu
+      res.products.forEach(p => {
+        const item = document.createElement('div');
+        item.className = 'dropdown-item';
+        const isChecked = isProductSelected(p.id);
+        const imgTag = p.image ? `<img src="${p.image}" alt="">` : `<div style="width:44px;height:44px;background:#e2e8f0;border-radius:6px;"></div>`;
+        item.innerHTML = `
+          <input type="checkbox" class="dropdown-item-cb" data-id="${p.id}" ${isChecked ? 'checked' : ''}>
+          ${imgTag}
+          <div class="dropdown-item-info">
+            <div class="dropdown-item-title">${p.name}</div>
+            <div class="dropdown-item-meta">
+              <span class="dropdown-item-price">${p.price}</span>
+              <span>${p.categories || 'Sản phẩm'}</span>
+            </div>
+          </div>
+        `;
+
+        const cb = item.querySelector('.dropdown-item-cb');
+        cb.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          toggleProductSelection(p, cb);
+        });
+
+        item.addEventListener('click', (ev) => {
+          if (ev.target !== cb) {
+            toggleProductSelection(p, cb);
+          }
+        });
+
+        searchDropdown.appendChild(item);
+      });
+      searchDropdown.style.display = 'block';
+    } else {
+      searchDropdown.innerHTML = '<div style="padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center;">Không tìm thấy sản phẩm phù hợp. Thử từ khóa khác hoặc bấm nút "Đồng bộ SP".</div>';
+      searchDropdown.style.display = 'block';
+    }
+  }
 
   searchInput.addEventListener('input', (e) => {
     clearTimeout(searchDebounceTimer);
@@ -405,74 +516,17 @@ function setupEventListeners() {
       searchDropdown.style.display = 'none';
       return;
     }
+    // Tìm kiếm tức thì trong bộ nhớ local chỉ cần delay 40ms
+    searchDebounceTimer = setTimeout(() => {
+      performSearch(query);
+    }, 40);
+  });
 
-    searchDebounceTimer = setTimeout(async () => {
-      searchDropdown.innerHTML = '<div style="padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center;">Đang tìm kiếm sản phẩm...</div>';
-      searchDropdown.style.display = 'block';
-
-      const res = await window.electronAPI.searchProducts(query);
-      if (res.success && res.products.length > 0) {
-        searchDropdown.innerHTML = '';
-
-        // Thanh thao tác trên cùng dropdown
-        const topBar = document.createElement('div');
-        topBar.className = 'dropdown-top-bar';
-        topBar.innerHTML = `
-          <span>Tìm thấy ${res.products.length} sản phẩm</span>
-          <div style="display: flex; gap: 10px; align-items: center;">
-            <button type="button" class="btn-clear-batch" id="btn_dd_select_all" style="font-weight: 600; font-size: 11px; color: var(--google-blue); text-decoration: underline;">Chọn tất cả</button>
-            <button type="button" class="dropdown-done-btn" id="btn_dd_done">Xong</button>
-          </div>
-        `;
-        searchDropdown.appendChild(topBar);
-
-        topBar.querySelector('#btn_dd_select_all').addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          selectAllFromSearchResults(res.products);
-          showToast(`Đã chọn tất cả ${res.products.length} sản phẩm trong kết quả`, 'success');
-        });
-
-        topBar.querySelector('#btn_dd_done').addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          searchDropdown.style.display = 'none';
-        });
-
-        // Danh sách sản phẩm
-        res.products.forEach(p => {
-          const item = document.createElement('div');
-          item.className = 'dropdown-item';
-          const isChecked = isProductSelected(p.id);
-          const imgTag = p.image ? `<img src="${p.image}" alt="">` : `<div style="width:44px;height:44px;background:#e2e8f0;border-radius:6px;"></div>`;
-          item.innerHTML = `
-            <input type="checkbox" class="dropdown-item-cb" data-id="${p.id}" ${isChecked ? 'checked' : ''}>
-            ${imgTag}
-            <div class="dropdown-item-info">
-              <div class="dropdown-item-title">${p.name}</div>
-              <div class="dropdown-item-meta">
-                <span class="dropdown-item-price">${p.price}</span>
-                <span>${p.categories || 'Sản phẩm'}</span>
-              </div>
-            </div>
-          `;
-
-          const cb = item.querySelector('.dropdown-item-cb');
-          cb.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            toggleProductSelection(p, cb);
-          });
-
-          item.addEventListener('click', (ev) => {
-            if (ev.target !== cb) {
-              toggleProductSelection(p, cb);
-            }
-          });
-
-          searchDropdown.appendChild(item);
-        });
-      } else {
-        searchDropdown.innerHTML = '<div style="padding: 12px; font-size: 12px; color: var(--text-muted); text-align: center;">Không tìm thấy sản phẩm phù hợp.</div>';
-      }
-    }, 280);
+  searchInput.addEventListener('focus', () => {
+    const query = searchInput.value.trim();
+    if (query.length > 0) {
+      performSearch(query);
+    }
   });
 
   // Đóng dropdown khi bấm ra ngoài

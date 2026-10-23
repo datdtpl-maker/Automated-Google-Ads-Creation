@@ -32,6 +32,7 @@
       "index.html",
       "styles.css",
       "config.json",
+      "products_cache.json",
       "icon.ico",
       "icon.png"
     ],

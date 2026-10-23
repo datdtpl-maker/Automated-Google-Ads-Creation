@@ -421,7 +421,7 @@ body {
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   color: var(--text-primary);
-  padding: 12px 14px 12px 42px;
+  padding: 12px 135px 12px 42px;
   border-radius: var(--radius-md);
   font-size: 14px;
   outline: none;
@@ -431,6 +431,38 @@ body {
 .search-input:focus {
   border-color: var(--google-blue);
   box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15);
+}
+
+.btn-sync-sp {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-main);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.btn-sync-sp:hover {
+  background: #e8f0fe;
+  color: var(--google-blue);
+  border-color: var(--google-blue);
+}
+.btn-sync-sp.syncing svg {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Autocomplete Dropdown */

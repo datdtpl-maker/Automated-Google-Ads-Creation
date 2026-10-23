@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
     
     // Nghiệp vụ WooCommerce & Google Ads
+    syncProducts: (force) => ipcRenderer.invoke('sync-products', force),
     searchProducts: (keyword) => ipcRenderer.invoke('search-products', keyword),
     getProductDetails: (idOrUrl) => ipcRenderer.invoke('get-product-details', idOrUrl),
     generateCampaign: (params) => ipcRenderer.invoke('generate-campaign', params),
