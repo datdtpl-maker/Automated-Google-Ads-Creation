@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
     wp_app_password: EMBEDDED_PASS,
     default_campaign_name: "Chiến dịch sản phẩm Web Derma | 21/10",
     max_cpc: 2000,
-    daily_budget: 50000,
+    daily_budget: 100000,
     campaign_mode: "separate",
     campaign_prefix: "Chiến dịch SP - ",
     root_images_dir: "D:\\Project Anti\\Auto-Google-Ads\\output\\images"
@@ -90,6 +90,12 @@ function readConfig() {
             // Luôn đặt mặc định mô hình là gemini-3.8-flash (loại bỏ các mô hình cũ đã ngừng hỗ trợ)
             if (!config.gemini_model || config.gemini_model !== 'gemini-3.8-flash') {
                 config.gemini_model = 'gemini-3.8-flash';
+                needsResave = true;
+            }
+
+            // Tự động nâng cấp ngân sách mặc định lên 100.000 đ nếu còn ở mức cũ 50.000 đ
+            if (!config.daily_budget || config.daily_budget === 50000) {
+                config.daily_budget = 100000;
                 needsResave = true;
             }
 
@@ -576,7 +582,7 @@ ipcMain.handle('get-product-details', async (event, id) => {
 
 // 9. Cấu trúc Header chuẩn Google Ads Bulk Upload (Tự động tạo Chiến dịch, Ngân sách, Nhóm, RSA, Từ khóa)
 const CSV_HEADERS = [
-    'Campaign', 'Campaign Type', 'Campaign status', 'Budget', 'Budget type', 'Bid Strategy type', 'EU political ads',
+    'Campaign', 'Campaign Type', 'Campaign status', 'Budget', 'Budget type', 'Bid Strategy type', 'EU political ads', 'Location',
     'Ad group', 'Ad group status', 'Max CPC',
     'Ad type', 'Final URL', 'Path 1', 'Path 2'
 ];
@@ -839,19 +845,19 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
             'Campaign': targetCampName,
             'Campaign Type': 'Search',
             'Campaign status': 'Enabled',
-            'Budget': dailyBudget || 50000,
+            'Budget': dailyBudget || 100000,
             'Budget type': 'Daily',
-            'Bid Strategy type': 'Manual CPC',
-            'EU political ads': 'No'
+            'Bid Strategy type': 'Maximize conversions',
+            'EU political ads': 'No',
+            'Location': 'Vietnam'
         }));
     }
 
-    // Dòng Nhóm quảng cáo
+    // Dòng Nhóm quảng cáo (Để trống Max CPC vì chiến dịch sử dụng chiến lược Tối đa hóa chuyển đổi)
     productRows.push(createCsvRow({
         'Campaign': targetCampName,
         'Ad group': adGroupName,
-        'Ad group status': 'Enabled',
-        'Max CPC': effectiveMaxCpc
+        'Ad group status': 'Enabled'
     }));
 
     // Dòng Mẫu quảng cáo RSA
@@ -891,7 +897,6 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
         productRows.push(createCsvRow({
             'Campaign': targetCampName,
             'Ad group': adGroupName,
-            'Max CPC': effectiveMaxCpc,
             'Keyword': kwText,
             'Criterion Type': criterion
         }));
@@ -911,7 +916,7 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
 
 // 10. Tạo chiến dịch hàng loạt cho nhiều sản phẩm
 async function executeBatchCampaign(sender, params) {
-    const { products, campaignMode = 'separate', campaignPrefix, campaignName, dailyBudget = 50000, maxCpc, customImagesDir } = params;
+    const { products, campaignMode = 'separate', campaignPrefix, campaignName, dailyBudget = 100000, maxCpc, customImagesDir } = params;
     if (!products || !Array.isArray(products) || products.length === 0) {
         return { success: false, error: 'Chưa chọn sản phẩm nào để tạo chiến dịch!' };
     }
@@ -928,12 +933,26 @@ async function executeBatchCampaign(sender, params) {
     const effectivePrefix = (campaignPrefix && campaignPrefix.trim()) ? campaignPrefix.trim() : (cfg.campaign_prefix || "Chiến dịch SP - ");
     const effectiveCampaignName = campaignName || cfg.default_campaign_name || "Chiến dịch sản phẩm Web Derma | 21/10";
     const effectiveMaxCpc = maxCpc ? parseInt(maxCpc, 10) : (cfg.max_cpc || 2000);
-    const effectiveDailyBudget = dailyBudget ? parseInt(dailyBudget, 10) : (cfg.daily_budget || 50000);
+    const effectiveDailyBudget = dailyBudget ? parseInt(dailyBudget, 10) : (cfg.daily_budget || 100000);
     const rootImgDir = (customImagesDir && customImagesDir.trim()) ? customImagesDir.trim() : (cfg.root_images_dir || getDefaultImagesDir());
 
     const allRows = [];
     const productsResults = [];
     const N = products.length;
+
+    // Nếu ở chế độ gom chung vào 1 chiến dịch, thêm dòng Cấp Chiến Dịch ở đầu file
+    if (campaignMode === 'single') {
+        allRows.push(createCsvRow({
+            'Campaign': effectiveCampaignName,
+            'Campaign Type': 'Search',
+            'Campaign status': 'Enabled',
+            'Budget': effectiveDailyBudget,
+            'Budget type': 'Daily',
+            'Bid Strategy type': 'Maximize conversions',
+            'EU political ads': 'No',
+            'Location': 'Vietnam'
+        }));
+    }
 
     for (let i = 0; i < N; i++) {
         const prod = products[i];
@@ -989,7 +1008,7 @@ async function executeBatchCampaign(sender, params) {
             percent: 96,
             step: 'csv_export',
             productTitle: productsResults[0]?.shortName || '',
-            message: `Đang xuất file CSV Master All-in-One...`,
+            message: `Đang xuất file CSV Master All-in-One & Sitelinks...`,
             detail: `Tổng hợp ${allRows.length} dòng dữ liệu`
         });
     }
@@ -1007,6 +1026,59 @@ async function executeBatchCampaign(sender, params) {
 
     fs.writeFileSync(csvFilePath, '\uFEFF' + csvContentRows.join('\r\n'), 'utf8');
 
+    // Xuất thêm file CSV Sitelinks (Liên kết trang web) chuyên dụng cho Google Ads
+    const sitelinksFileName = `google_ads_sitelinks_${cleanTag}.csv`;
+    const sitelinksFilePath = path.join(outputDir, sitelinksFileName);
+    const SITELINK_HEADERS = ['Campaign', 'Link text', 'Final URL', 'Description line 1', 'Description line 2'];
+    const sitelinkCsvRows = [SITELINK_HEADERS.map(escapeCsv).join(',')];
+
+    // Thu thập danh sách các chiến dịch duy nhất đã tạo
+    const uniqueCampaigns = [...new Set(productsResults.map(p => p.targetCampName).filter(Boolean))];
+    if (uniqueCampaigns.length === 0 && effectiveCampaignName) {
+        uniqueCampaigns.push(effectiveCampaignName);
+    }
+
+    const defaultSitelinks = [
+        {
+            linkText: 'Dược Sĩ Tư Vấn 1-1',
+            finalUrl: 'https://khaihoanderma.com',
+            desc1: 'Tư vấn da liễu miễn phí',
+            desc2: 'Đội ngũ dược sĩ tận tâm hỗ trợ'
+        },
+        {
+            linkText: 'Sản Phẩm Trị Mụn',
+            finalUrl: 'https://khaihoanderma.com/danh-muc/tri-mun/',
+            desc1: '100% hàng chuẩn y khoa',
+            desc2: 'Cam kết rõ nguồn gốc hóa đơn'
+        },
+        {
+            linkText: 'Giao Hỏa Tốc Toàn Quốc',
+            finalUrl: 'https://khaihoanderma.com',
+            desc1: 'Kiểm tra hàng trước khi nhận',
+            desc2: 'Hỗ trợ thanh toán khi nhận hàng'
+        },
+        {
+            linkText: 'Chính Sách Đổi Trả',
+            finalUrl: 'https://khaihoanderma.com',
+            desc1: 'Đổi trả linh hoạt trong 7 ngày',
+            desc2: 'Bảo vệ quyền lợi khách hàng'
+        }
+    ];
+
+    for (const cName of uniqueCampaigns) {
+        for (const st of defaultSitelinks) {
+            sitelinkCsvRows.push([
+                escapeCsv(cName),
+                escapeCsv(st.linkText),
+                escapeCsv(st.finalUrl),
+                escapeCsv(st.desc1),
+                escapeCsv(st.desc2)
+            ].join(','));
+        }
+    }
+
+    fs.writeFileSync(sitelinksFilePath, '\uFEFF' + sitelinkCsvRows.join('\r\n'), 'utf8');
+
     if (sender && typeof sender.send === 'function') {
         sender.send('batch-progress', {
             current: N,
@@ -1014,8 +1086,8 @@ async function executeBatchCampaign(sender, params) {
             percent: 100,
             step: 'completed',
             productTitle: productsResults[0]?.shortName || '',
-            message: `✓ Hoàn tất 100%! Đã tạo thành công dữ liệu và xuất file CSV Master.`,
-            detail: `File CSV: ${csvFileName}`
+            message: `✓ Hoàn tất 100%! Đã tạo thành công dữ liệu và xuất file CSV Master & Sitelinks.`,
+            detail: `Files: ${csvFileName} & ${sitelinksFileName}`
         });
     }
 
@@ -1027,6 +1099,9 @@ async function executeBatchCampaign(sender, params) {
         successful_products: productsResults.length,
         csv_file_path: csvFilePath,
         csv_file_name: csvFileName,
+        sitelinks_file_path: sitelinksFilePath,
+        sitelinks_file_name: sitelinksFileName,
+        sitelinks: defaultSitelinks,
         output_dir: outputDir,
         products_results: productsResults,
         ad_data: productsResults[0]?.adData,

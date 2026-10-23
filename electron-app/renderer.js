@@ -73,8 +73,8 @@ async function loadAndApplyConfig() {
     document.getElementById('cfg_root_images_dir').value = cleanImagesDir;
     document.getElementById('cfg_campaign_prefix').value = cfg.campaign_prefix || 'Chiến dịch SP - ';
     document.getElementById('input_campaign_prefix').value = cfg.campaign_prefix || 'Chiến dịch SP - ';
-    document.getElementById('cfg_daily_budget').value = cfg.daily_budget || 50000;
-    document.getElementById('input_daily_budget').value = cfg.daily_budget || 50000;
+    document.getElementById('cfg_daily_budget').value = cfg.daily_budget || 100000;
+    document.getElementById('input_daily_budget').value = cfg.daily_budget || 100000;
     document.getElementById('cfg_max_cpc').value = cfg.max_cpc || 2000;
     document.getElementById('cfg_default_camp_name').value = cleanCampName;
 
@@ -660,6 +660,27 @@ function setupEventListeners() {
     });
   }
 
+  // Nút sao chép đường dẫn file CSV Sitelinks
+  const btnCopySitelinksPath = document.getElementById('btn_copy_sitelinks_path');
+  if (btnCopySitelinksPath) {
+    btnCopySitelinksPath.addEventListener('click', () => {
+      if (lastGeneratedResult && lastGeneratedResult.sitelinks_file_path) {
+        navigator.clipboard.writeText(lastGeneratedResult.sitelinks_file_path);
+        showToast('Đã sao chép đường dẫn file Sitelinks CSV! (Bấm Ctrl+V tại ô File Name để chọn file)', 'success');
+      }
+    });
+  }
+
+  // Nút mở file CSV Sitelinks trong Explorer
+  const btnShowSitelinks = document.getElementById('btn_show_sitelinks_in_folder');
+  if (btnShowSitelinks) {
+    btnShowSitelinks.addEventListener('click', async () => {
+      if (lastGeneratedResult && lastGeneratedResult.sitelinks_file_path) {
+        await window.electronAPI.showItemInFolder(lastGeneratedResult.sitelinks_file_path);
+      }
+    });
+  }
+
   // Nút sao chép nội dung văn bản
   document.getElementById('btn_copy_all_headlines').addEventListener('click', () => {
     if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
@@ -841,9 +862,26 @@ function renderResults(data) {
 
   // 1. Mockup Tab
   const domain = (ad.final_url.match(/^(?:https?:\/\/)?([^\/]+)/i) || ['', 'khaihoanderma.com'])[1];
+  const mockBusName = document.getElementById('mock_business_name');
+  if (mockBusName) mockBusName.innerText = 'Khải Hoàn Derma';
   document.getElementById('mock_display_url').innerText = `https://${domain}/${ad.path1}/${ad.path2}`;
   document.getElementById('mock_headline').innerText = `${ad.headlines[0] || ''} | ${ad.headlines[1] || ''} | ${ad.headlines[2] || ''}`;
   document.getElementById('mock_description').innerText = ad.descriptions[0] || '';
+
+  // Cập nhật các liên kết trang web (Sitelinks) trong Mockup
+  const sitelinksContainer = document.getElementById('mock_sitelinks_grid');
+  if (sitelinksContainer && data.sitelinks && data.sitelinks.length > 0) {
+    sitelinksContainer.innerHTML = '';
+    data.sitelinks.forEach(st => {
+      const box = document.createElement('div');
+      box.className = 'sitelink-box';
+      box.innerHTML = `
+        <div class="ad-sitelink-title">${st.linkText}</div>
+        <div class="ad-sitelink-desc">${st.desc1}</div>
+      `;
+      sitelinksContainer.appendChild(box);
+    });
+  }
 
   // 2. Headlines Grid
   const gridH = document.getElementById('grid_headlines');
@@ -954,6 +992,10 @@ function renderResults(data) {
 
   // 6. CSV Tab
   document.getElementById('label_csv_file_path').innerText = data.csv_file_path || '--';
+  const labelSitelinks = document.getElementById('label_sitelinks_file_path');
+  if (labelSitelinks) {
+    labelSitelinks.innerText = data.sitelinks_file_path || '--';
+  }
 
   resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
