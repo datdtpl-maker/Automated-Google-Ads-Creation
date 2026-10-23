@@ -244,7 +244,7 @@ function updateSelectedProductsUI() {
         chip.className = 'batch-chip';
         chip.innerHTML = `
           <img src="${p.thumb || 'icon.png'}" alt="">
-          <span title="${p.title}">${p.title.length > 25 ? p.title.slice(0, 23) + '...' : p.title}</span>
+          <span title="${p.title}">${p.title}</span>
           <span class="batch-chip-remove" title="Bỏ chọn sản phẩm này">✕</span>
         `;
         chip.querySelector('.batch-chip-remove').addEventListener('click', (e) => {
@@ -496,6 +496,10 @@ function setupEventListeners() {
 
         item.addEventListener('click', (ev) => {
           if (ev.target !== cb) {
+            const sel = window.getSelection().toString();
+            if (sel && sel.trim().length > 0) {
+              return; // Đang quét chuột chọn text để copy, không kích hoạt chọn/bỏ chọn
+            }
             toggleProductSelection(p, cb);
           }
         });

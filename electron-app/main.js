@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, shell, ipcMain, Menu, MenuItem } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -186,6 +186,34 @@ function createWindow() {
     });
 
     mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+    // Context menu chuột phải tiện lợi cho việc bôi đen Sao chép / Dán văn bản
+    mainWindow.webContents.on('context-menu', (event, params) => {
+        const menu = new Menu();
+
+        if (params.selectionText && params.selectionText.trim().length > 0) {
+            menu.append(new MenuItem({
+                label: 'Sao chép (Copy)',
+                role: 'copy',
+                accelerator: 'CmdOrCtrl+C'
+            }));
+            menu.append(new MenuItem({ type: 'separator' }));
+        }
+
+        if (params.isEditable) {
+            menu.append(new MenuItem({ label: 'Cắt (Cut)', role: 'cut' }));
+            menu.append(new MenuItem({ label: 'Sao chép (Copy)', role: 'copy' }));
+            menu.append(new MenuItem({ label: 'Dán (Paste)', role: 'paste' }));
+            menu.append(new MenuItem({ type: 'separator' }));
+            menu.append(new MenuItem({ label: 'Chọn tất cả (Select All)', role: 'selectAll' }));
+        } else if (params.selectionText && params.selectionText.trim().length > 0) {
+            menu.append(new MenuItem({ label: 'Chọn tất cả (Select All)', role: 'selectAll' }));
+        }
+
+        if (menu.items.length > 0) {
+            menu.popup({ window: mainWindow, x: params.x, y: params.y });
+        }
+    });
 
     mainWindow.on('closed', () => {
         mainWindow = null;

@@ -66,6 +66,11 @@ body {
   user-select: none;
 }
 
+::selection {
+  background: #c2e7ff;
+  color: #001d35;
+}
+
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 8px;
@@ -409,7 +414,7 @@ body {
   align-items: center;
 }
 
-.search-input-wrapper svg {
+.search-input-wrapper > svg {
   position: absolute;
   left: 14px;
   color: var(--text-muted);
@@ -427,6 +432,8 @@ body {
   outline: none;
   transition: all 0.2s ease;
   font-family: inherit;
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 .search-input:focus {
   border-color: var(--google-blue);
@@ -446,16 +453,26 @@ body {
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   transition: all 0.15s ease;
   font-family: inherit;
+  z-index: 2;
+  user-select: none;
 }
 .btn-sync-sp:hover {
   background: #e8f0fe;
   color: var(--google-blue);
   border-color: var(--google-blue);
+}
+.btn-sync-sp svg {
+  position: static !important;
+  left: auto !important;
+  color: currentColor;
+  flex-shrink: 0;
+  pointer-events: none;
 }
 .btn-sync-sp.syncing svg {
   animation: spin 0.8s linear infinite;
@@ -507,6 +524,8 @@ body {
 .dropdown-item-info {
   flex: 1;
   overflow: hidden;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .dropdown-item-title {
@@ -516,6 +535,9 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
 }
 
 .dropdown-item-meta {
@@ -631,6 +653,18 @@ body {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-primary);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.batch-chip span:first-of-type {
+  max-width: 240px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
 }
 
 .batch-chip img {
@@ -681,6 +715,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .product-title {
@@ -688,6 +724,9 @@ body {
   font-weight: 700;
   color: var(--text-primary);
   line-height: 1.35;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text;
 }
 
 .product-badges {
@@ -695,6 +734,8 @@ body {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 2px;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .p-badge {
