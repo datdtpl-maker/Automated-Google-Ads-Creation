@@ -1,12 +1,17 @@
 const { app, BrowserWindow, dialog, shell, ipcMain, Menu, MenuItem } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 
 let mainWindow = null;
 
 // KHÓA VÀ CẤU HÌNH TỰ ĐỘNG BẢO MẬT (TỰ GIẢI MÃ NỘI BỘ TRÊN MÁY TÍNH)
 const EMBEDDED_KEY = Buffer.from('QVEuQWI4Uk42SkRESmMwNmtIREZ6a3k3RmZtX19pRXJGMm9QV3g3VVY5VXN2YkxRNVhXaXc=', 'base64').toString('utf8');
 const EMBEDDED_PASS = Buffer.from('NmxHUyBhR1hUIGU2cXggQnhPWiBnOXo3IHRjMUs=', 'base64').toString('utf8');
+const EMBEDDED_NOTION = Buffer.from('bnRuXzMwMTcxMDQ4MzYyR1JGZWxzYjd0SWpDbTFPOWFGM3l6RHdsZ1NETjFmU20wakY=', 'base64').toString('utf8');
+const DEFAULT_NOTION_TOKEN = EMBEDDED_NOTION;
+const DEFAULT_NOTION_PAGE_ID = '37570655-a9aa-8115-8419-e440d1aa0ff5';
+const DEFAULT_NOTION_DATABASE_ID = '40270655-a9aa-81a0-93d6-dae93c86f895';
 
 const DEFAULT_CONFIG = {
     gemini_api_key: EMBEDDED_KEY,
@@ -19,7 +24,10 @@ const DEFAULT_CONFIG = {
     daily_budget: 100000,
     campaign_mode: "separate",
     campaign_prefix: "Chiến dịch SP - ",
-    root_images_dir: "D:\\Project Anti\\Auto-Google-Ads\\output\\images"
+    root_images_dir: "D:\\Project Anti\\Auto-Google-Ads\\output\\images",
+    notion_token: DEFAULT_NOTION_TOKEN,
+    notion_page_id: DEFAULT_NOTION_PAGE_ID,
+    notion_database_id: DEFAULT_NOTION_DATABASE_ID
 };
 
 // Kiểm tra và sửa lỗi chuỗi mojibake
@@ -106,6 +114,20 @@ function readConfig() {
             }
             if (isMojibake(config.root_images_dir) || config.root_images_dir.includes('OneDrive')) {
                 config.root_images_dir = DEFAULT_CONFIG.root_images_dir;
+                needsResave = true;
+            }
+
+            // Tự động khôi phục cấu hình Notion nếu bị thiếu
+            if (!config.notion_token || config.notion_token.trim() === '') {
+                config.notion_token = DEFAULT_CONFIG.notion_token;
+                needsResave = true;
+            }
+            if (!config.notion_page_id || config.notion_page_id.trim() === '') {
+                config.notion_page_id = DEFAULT_CONFIG.notion_page_id;
+                needsResave = true;
+            }
+            if (!config.notion_database_id || config.notion_database_id.trim() === '') {
+                config.notion_database_id = DEFAULT_CONFIG.notion_database_id;
                 needsResave = true;
             }
         } catch (e) {
@@ -1095,6 +1117,294 @@ ipcMain.handle('generate-campaign', async (event, params) => {
         maxCpc,
         customImagesDir
     });
+});
+
+// ==========================================
+// TÍCH HỢP NOTION - ADS & CAMP HUB
+// ==========================================
+
+function callNotionApi(pathStr, method = 'GET', bodyObj = null) {
+    const cfg = readConfig();
+    const token = cfg.notion_token || DEFAULT_CONFIG.notion_token;
+
+    return new Promise((resolve) => {
+        const payload = bodyObj ? JSON.stringify(bodyObj) : null;
+        const options = {
+            hostname: 'api.notion.com',
+            path: pathStr,
+            method: method,
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Notion-Version': '2022-06-28',
+                'Content-Type': 'application/json'
+            }
+        };
+        if (payload) {
+            options.headers['Content-Length'] = Buffer.byteLength(payload);
+        }
+
+        const req = https.request(options, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    const json = JSON.parse(data);
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        resolve({ success: true, statusCode: res.statusCode, data: json });
+                    } else {
+                        resolve({ success: false, statusCode: res.statusCode, error: json.message || data });
+                    }
+                } catch (e) {
+                    resolve({ success: false, statusCode: res.statusCode, error: data });
+                }
+            });
+        });
+
+        req.on('error', (err) => resolve({ success: false, error: err.message }));
+        if (payload) req.write(payload);
+        req.end();
+    });
+}
+
+async function fetchNotionTasksFromDatabase(filterStatus = null) {
+    const cfg = readConfig();
+    const dbId = cfg.notion_database_id || DEFAULT_CONFIG.notion_database_id;
+    
+    let allRows = [];
+    let hasMore = true;
+    let startCursor = undefined;
+
+    while (hasMore) {
+        const body = { page_size: 100 };
+        if (startCursor) body.start_cursor = startCursor;
+        if (filterStatus && filterStatus !== 'all') {
+            body.filter = {
+                property: 'Trạng Thái',
+                select: { equals: filterStatus }
+            };
+        }
+
+        const res = await callNotionApi(`/v1/databases/${dbId}/query`, 'POST', body);
+        if (!res.success) {
+            return { success: false, error: res.error, tasks: [] };
+        }
+
+        if (res.data?.results) {
+            for (const r of res.data.results) {
+                const props = r.properties || {};
+                const title = props['Tên Chiến Dịch / Sản Phẩm']?.title?.[0]?.plain_text || 'Không có tên';
+                const status = props['Trạng Thái']?.select?.name || 'Chờ tạo';
+                const statusColor = props['Trạng Thái']?.select?.color || 'default';
+                const url = props['URL Web Derma']?.url || '';
+                const price = props['Giá Bán']?.rich_text?.[0]?.plain_text || '';
+                const category = props['Danh Mục']?.select?.name || '';
+                const dailyBudget = props['Ngân Sách Ngày']?.number || 100000;
+                const csvFile = props['File CSV']?.rich_text?.[0]?.plain_text || '';
+                const updatedAt = props['Ngày Cập Nhật']?.date?.start || '';
+
+                allRows.push({
+                    page_id: r.id,
+                    title,
+                    status,
+                    status_color: statusColor,
+                    url,
+                    price,
+                    category,
+                    daily_budget: dailyBudget,
+                    csv_file: csvFile,
+                    updated_at: updatedAt
+                });
+            }
+        }
+
+        hasMore = !!res.data?.has_more;
+        startCursor = res.data?.next_cursor;
+    }
+
+    return { success: true, tasks: allRows, total: allRows.length };
+}
+
+async function updateNotionTaskProperties(pageId, status, csvFileName = null) {
+    const props = {
+        'Trạng Thái': { select: { name: status } },
+        'Ngày Cập Nhật': { date: { start: new Date().toISOString() } }
+    };
+    if (csvFileName !== null && csvFileName !== undefined) {
+        props['File CSV'] = { rich_text: [{ text: { content: csvFileName } }] };
+    }
+
+    const res = await callNotionApi(`/v1/pages/${pageId}`, 'PATCH', { properties: props });
+    return res;
+}
+
+async function syncNotionProductsFromCache() {
+    const cfg = readConfig();
+    const dbId = cfg.notion_database_id || DEFAULT_CONFIG.notion_database_id;
+    let products = memoryProductsCache;
+    if (!products || products.length === 0) {
+        products = loadProductsFromDisk();
+    }
+    if (!products || products.length === 0) {
+        return { success: false, error: 'Chưa có sản phẩm trong bộ nhớ cache local.' };
+    }
+
+    const existing = await fetchNotionTasksFromDatabase('all');
+    const existingUrls = new Set((existing.tasks || []).map(t => (t.url || '').trim()).filter(Boolean));
+    const existingTitles = new Set((existing.tasks || []).map(t => (t.title || '').trim().toLowerCase()).filter(Boolean));
+
+    let createdCount = 0;
+    for (const p of products) {
+        const pUrl = (p.permalink || '').trim();
+        const pTitle = (p.name || '').trim().toLowerCase();
+        if (existingUrls.has(pUrl) || existingTitles.has(pTitle)) {
+            continue;
+        }
+
+        const firstCat = p.categories ? p.categories.split(',')[0].trim() : 'Chăm Sóc Da';
+        const priceText = p.price || (p.regular_price ? `${Number(p.regular_price).toLocaleString('vi-VN')} đ` : '');
+        
+        const body = {
+            parent: { database_id: dbId },
+            properties: {
+                'Tên Chiến Dịch / Sản Phẩm': {
+                    title: [{ text: { content: p.name.slice(0, 100) } }]
+                },
+                'Trạng Thái': {
+                    select: { name: 'Chờ tạo' }
+                },
+                'URL Web Derma': p.permalink ? { url: p.permalink } : undefined,
+                'Giá Bán': {
+                    rich_text: [{ text: { content: priceText } }]
+                },
+                'Danh Mục': {
+                    select: { name: firstCat }
+                },
+                'Ngân Sách Ngày': {
+                    number: 100000
+                }
+            }
+        };
+
+        const res = await callNotionApi('/v1/pages', 'POST', body);
+        if (res.success) {
+            createdCount++;
+            existingUrls.add(pUrl);
+            existingTitles.add(pTitle);
+        }
+        await new Promise(r => setTimeout(r, 350));
+    }
+
+    return { success: true, added: createdCount, total: existing.tasks.length + createdCount };
+}
+
+// IPC Notion Handlers
+ipcMain.handle('test-notion', async (event, { token, databaseId }) => {
+    try {
+        const cfg = readConfig();
+        const t = token || cfg.notion_token || DEFAULT_CONFIG.notion_token;
+        const d = databaseId || cfg.notion_database_id || DEFAULT_CONFIG.notion_database_id;
+        
+        const res = await callNotionApi(`/v1/databases/${d}`, 'GET');
+        if (res.success) {
+            const title = res.data?.title?.[0]?.plain_text || 'Camp google ADS';
+            return { success: true, message: `Kết nối Notion thành công! Database: "${title}"` };
+        } else {
+            return { success: false, message: `Lỗi kết nối Notion: ${res.error}` };
+        }
+    } catch (e) {
+        return { success: false, message: `Lỗi kết nối Notion: ${e.message}` };
+    }
+});
+
+ipcMain.handle('fetch-notion-tasks', async (event, filter) => {
+    return await fetchNotionTasksFromDatabase(filter);
+});
+
+ipcMain.handle('update-notion-task', async (event, { pageId, status, csvFileName }) => {
+    return await updateNotionTaskProperties(pageId, status, csvFileName);
+});
+
+ipcMain.handle('sync-notion-products', async () => {
+    return await syncNotionProductsFromCache();
+});
+
+ipcMain.handle('open-external-url', async (event, url) => {
+    if (url && (url.startsWith('https://') || url.startsWith('http://'))) {
+        shell.openExternal(url);
+        return { success: true };
+    }
+    return { success: false, error: 'URL không hợp lệ' };
+});
+
+ipcMain.handle('run-notion-campaigns', async (event, params) => {
+    const { tasks, campaignPrefix, dailyBudget = 100000, maxCpc, customImagesDir } = params;
+    if (!tasks || !Array.isArray(tasks) || tasks.length === 0) {
+        return { success: false, error: 'Chưa chọn nhiệm vụ/sản phẩm nào từ Notion!' };
+    }
+
+    if (!memoryProductsCache || memoryProductsCache.length === 0) {
+        loadProductsFromDisk();
+    }
+
+    const productsToProcess = [];
+    for (const t of tasks) {
+        let matched = memoryProductsCache.find(p => 
+            (t.url && p.permalink && t.url.trim() === p.permalink.trim()) ||
+            (t.title && p.name && (t.title.trim().toLowerCase() === p.name.trim().toLowerCase() || p.name.toLowerCase().includes(t.title.toLowerCase()) || t.title.toLowerCase().includes(p.name.toLowerCase())))
+        );
+
+        if (matched) {
+            productsToProcess.push({
+                notion_page_id: t.page_id,
+                id: matched.id,
+                title: matched.name,
+                url: matched.permalink,
+                price: matched.price || t.price,
+                categories: matched.categories || t.category,
+                description: matched.short_description || matched.name,
+                images: matched.images || (matched.image ? [matched.image] : []),
+                thumb: matched.image || 'icon.png',
+                task_budget: t.daily_budget || dailyBudget
+            });
+        } else {
+            productsToProcess.push({
+                notion_page_id: t.page_id,
+                id: t.page_id,
+                title: t.title,
+                url: t.url || 'https://khaihoanderma.com',
+                price: t.price || '100.000 đ',
+                categories: t.category || 'Chăm Sóc Da',
+                description: t.title,
+                images: [],
+                thumb: 'icon.png',
+                task_budget: t.daily_budget || dailyBudget
+            });
+        }
+    }
+
+    const batchRes = await executeBatchCampaign(event.sender, {
+        products: productsToProcess,
+        campaignMode: 'separate',
+        campaignPrefix: campaignPrefix || 'Chiến dịch SP - ',
+        dailyBudget: dailyBudget,
+        maxCpc: maxCpc,
+        customImagesDir: customImagesDir
+    });
+
+    if (batchRes.success) {
+        for (const p of productsToProcess) {
+            if (p.notion_page_id) {
+                try {
+                    await updateNotionTaskProperties(p.notion_page_id, 'Đã xuất CSV', batchRes.csv_file_name);
+                } catch (e) {
+                    console.warn(`Lỗi update Notion row ${p.notion_page_id}:`, e.message);
+                }
+            }
+        }
+        batchRes.notion_updated = true;
+    }
+
+    return batchRes;
 });
 
 // Khởi chạy ứng dụng

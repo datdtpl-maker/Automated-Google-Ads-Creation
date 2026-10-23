@@ -78,6 +78,17 @@ async function loadAndApplyConfig() {
     document.getElementById('cfg_max_cpc').value = cfg.max_cpc || 2000;
     document.getElementById('cfg_default_camp_name').value = cleanCampName;
 
+    // Cấu hình Notion
+    if (document.getElementById('cfg_notion_token')) {
+      document.getElementById('cfg_notion_token').value = cfg.notion_token || '';
+    }
+    if (document.getElementById('cfg_notion_database_id')) {
+      document.getElementById('cfg_notion_database_id').value = cfg.notion_database_id || '';
+    }
+    if (document.getElementById('cfg_notion_page_id')) {
+      document.getElementById('cfg_notion_page_id').value = cfg.notion_page_id || '';
+    }
+
     // Điền giá trị mặc định trên thanh chiến dịch chính
     document.getElementById('input_campaign_name').value = cleanCampName;
     document.getElementById('input_max_cpc').value = cfg.max_cpc || 2000;
@@ -130,6 +141,30 @@ async function checkSystemHealth() {
   } else {
     dotWc.className = 'status-dot warning';
     textWc.innerText = 'WooCommerce: Chưa cấu hình';
+  }
+
+  // Notion Status
+  const dotNotion = document.getElementById('dot_notion');
+  const textNotion = document.getElementById('text_notion');
+  if (dotNotion && textNotion) {
+    if (currentConfig && currentConfig.notion_token) {
+      try {
+        const resN = await window.electronAPI.testNotion({});
+        if (resN.success) {
+          dotNotion.className = 'status-dot active';
+          textNotion.innerText = 'Notion: Kết nối';
+        } else {
+          dotNotion.className = 'status-dot warning';
+          textNotion.innerText = 'Notion: Lỗi kết nối';
+        }
+      } catch (e) {
+        dotNotion.className = 'status-dot warning';
+        textNotion.innerText = 'Notion: Offline';
+      }
+    } else {
+      dotNotion.className = 'status-dot warning';
+      textNotion.innerText = 'Notion: Chưa cấu hình';
+    }
   }
 }
 
@@ -343,6 +378,37 @@ function setupEventListeners() {
     }
   });
 
+  // Eye toggle Notion token
+  const btnToggleNotionEye = document.getElementById('btn_toggle_notion_token_eye');
+  if (btnToggleNotionEye) {
+    btnToggleNotionEye.addEventListener('click', () => {
+      const input = document.getElementById('cfg_notion_token');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    });
+  }
+
+  // Kiểm tra Notion
+  const btnTestNotion = document.getElementById('btn_test_notion');
+  if (btnTestNotion) {
+    btnTestNotion.addEventListener('click', async () => {
+      const token = document.getElementById('cfg_notion_token').value.trim();
+      const databaseId = document.getElementById('cfg_notion_database_id').value.trim();
+      updateTerminal('⏳ Đang kiểm tra kết nối Notion API...');
+      const res = await window.electronAPI.testNotion({ token, databaseId });
+      if (res.success) {
+        showToast(res.message, 'success');
+        updateTerminal(`✓ ${res.message}`);
+        const dotNotion = document.getElementById('dot_notion');
+        const textNotion = document.getElementById('text_notion');
+        if (dotNotion) dotNotion.className = 'status-dot active';
+        if (textNotion) textNotion.innerText = 'Notion: Sẵn sàng';
+      } else {
+        showToast(res.message, 'error');
+        updateTerminal(`✗ ${res.message}`);
+      }
+    });
+  }
+
   // Lưu cấu hình
   document.getElementById('btn_save_config').addEventListener('click', async () => {
     const newCfg = {
@@ -353,9 +419,12 @@ function setupEventListeners() {
       wp_app_password: document.getElementById('cfg_wp_password').value.trim(),
       root_images_dir: document.getElementById('cfg_root_images_dir').value.trim(),
       campaign_prefix: document.getElementById('cfg_campaign_prefix').value.trim() || 'Chiến dịch SP - ',
-      daily_budget: parseInt(document.getElementById('cfg_daily_budget').value, 10) || 50000,
+      daily_budget: parseInt(document.getElementById('cfg_daily_budget').value, 10) || 100000,
       max_cpc: parseInt(document.getElementById('cfg_max_cpc').value, 10) || 2000,
-      default_campaign_name: document.getElementById('cfg_default_camp_name').value.trim()
+      default_campaign_name: document.getElementById('cfg_default_camp_name').value.trim(),
+      notion_token: document.getElementById('cfg_notion_token')?.value.trim() || '',
+      notion_database_id: document.getElementById('cfg_notion_database_id')?.value.trim() || '',
+      notion_page_id: document.getElementById('cfg_notion_page_id')?.value.trim() || ''
     };
     const res = await window.electronAPI.saveConfig(newCfg);
     if (res.success) {
@@ -366,6 +435,130 @@ function setupEventListeners() {
       showToast('Lỗi khi lưu file cấu hình', 'error');
     }
   });
+
+  // Sự kiện mở & thao tác Notion Modal
+  const btnOpenNotionHub = document.getElementById('btn_open_notion_hub');
+  if (btnOpenNotionHub) btnOpenNotionHub.addEventListener('click', openNotionModal);
+
+  const btnScanNotionTasks = document.getElementById('btn_scan_notion_tasks');
+  if (btnScanNotionTasks) btnScanNotionTasks.addEventListener('click', openNotionModal);
+
+  const btnCloseNotionModal = document.getElementById('btn_close_notion_modal');
+  if (btnCloseNotionModal) btnCloseNotionModal.addEventListener('click', closeNotionModal);
+
+  const notionModalOverlay = document.getElementById('notion_modal_overlay');
+  if (notionModalOverlay) {
+    notionModalOverlay.addEventListener('click', (e) => {
+      if (e.target === notionModalOverlay) closeNotionModal();
+    });
+  }
+
+  const btnRefreshNotion = document.getElementById('btn_refresh_notion');
+  if (btnRefreshNotion) {
+    btnRefreshNotion.addEventListener('click', async () => {
+      showToast('Đang tải lại dữ liệu mới nhất từ Notion...', 'success');
+      await loadNotionTasks();
+    });
+  }
+
+  const btnOpenNotionLink = document.getElementById('btn_open_notion_link');
+  if (btnOpenNotionLink) {
+    btnOpenNotionLink.addEventListener('click', () => {
+      window.electronAPI.openExternalUrl('https://app.notion.com/p/40270655a9aa81a093d6dae93c86f895');
+    });
+  }
+
+  // Filter tabs trong Notion Modal
+  ['all', 'Chờ tạo', 'Đã xuất CSV'].forEach(st => {
+    const btnTab = document.querySelector(`.notion-tab-btn[data-status="${st}"]`);
+    if (btnTab) {
+      btnTab.addEventListener('click', () => {
+        document.querySelectorAll('.notion-tab-btn').forEach(b => b.classList.remove('active'));
+        btnTab.classList.add('active');
+        currentNotionFilter = st;
+        renderNotionTasks();
+      });
+    }
+  });
+
+  // Search input trong Notion Modal
+  const inputNotionSearch = document.getElementById('input_notion_search');
+  if (inputNotionSearch) {
+    inputNotionSearch.addEventListener('input', (e) => {
+      notionSearchKeyword = e.target.value;
+      renderNotionTasks();
+    });
+  }
+
+  // Select all Pending (Chờ tạo)
+  const btnSelectAllPending = document.getElementById('btn_select_all_pending');
+  if (btnSelectAllPending) {
+    btnSelectAllPending.addEventListener('click', () => {
+      notionTasksList.forEach(t => {
+        if (t.status === 'Chờ tạo') {
+          selectedNotionTasksSet.add(t.page_id);
+        }
+      });
+      renderNotionTasks();
+      showToast(`Đã chọn ${selectedNotionTasksSet.size} sản phẩm đang Chờ tạo!`, 'success');
+    });
+  }
+
+  // Deselect all
+  const btnDeselectAllNotion = document.getElementById('btn_deselect_all_notion');
+  if (btnDeselectAllNotion) {
+    btnDeselectAllNotion.addEventListener('click', () => {
+      selectedNotionTasksSet.clear();
+      renderNotionTasks();
+    });
+  }
+
+  // Checkbox Select All trên tiêu đề bảng Notion
+  const cbNotionSelectAll = document.getElementById('cb_notion_select_all');
+  if (cbNotionSelectAll) {
+    cbNotionSelectAll.addEventListener('change', () => {
+      const isChecked = cbNotionSelectAll.checked;
+      const visibleCheckboxes = document.querySelectorAll('.cb-notion-row');
+      visibleCheckboxes.forEach(cb => {
+        const pId = cb.getAttribute('data-id');
+        cb.checked = isChecked;
+        if (isChecked) {
+          selectedNotionTasksSet.add(pId);
+        } else {
+          selectedNotionTasksSet.delete(pId);
+        }
+      });
+      updateNotionSelectedCount();
+    });
+  }
+
+  // Đồng bộ thêm sản phẩm từ Web lên Notion
+  const btnSyncMoreNotion = document.getElementById('btn_sync_more_notion');
+  if (btnSyncMoreNotion) {
+    btnSyncMoreNotion.addEventListener('click', async () => {
+      showToast('Đang kiểm tra và đồng bộ sản phẩm mới lên Notion...', 'success');
+      btnSyncMoreNotion.disabled = true;
+      try {
+        const res = await window.electronAPI.syncNotionProducts();
+        if (res.success) {
+          showToast(`Đồng bộ hoàn tất! Đã thêm mới ${res.added} sản phẩm lên Notion.`, 'success');
+          await loadNotionTasks();
+        } else {
+          showToast(res.error || 'Lỗi khi đồng bộ sản phẩm lên Notion', 'error');
+        }
+      } catch (e) {
+        showToast(`Lỗi: ${e.message}`, 'error');
+      } finally {
+        btnSyncMoreNotion.disabled = false;
+      }
+    });
+  }
+
+  // Thực thi tạo chiến dịch từ Notion
+  const btnExecuteNotion = document.getElementById('btn_execute_notion_campaigns');
+  if (btnExecuteNotion) {
+    btnExecuteNotion.addEventListener('click', executeNotionCampaignsFlow);
+  }
 
   // Chuyển đổi chế độ Chiến dịch (Tách riêng từng sản phẩm vs Gộp chung)
   const radioSeparate = document.getElementById('radio_mode_separate');
@@ -976,4 +1169,302 @@ function renderResults(data) {
   switchResultTab('tab_preview');
 
   resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+
+// ========================================================
+// NOTION ADS & CAMP HUB - FRONTEND HANDLERS
+// ========================================================
+
+let notionTasksList = [];
+let selectedNotionTasksSet = new Set();
+let currentNotionFilter = 'all';
+let notionSearchKeyword = '';
+
+async function openNotionModal() {
+  const modal = document.getElementById('notion_modal_overlay');
+  if (modal) modal.style.display = 'flex';
+  if (notionTasksList.length === 0) {
+    await loadNotionTasks();
+  }
+}
+
+function closeNotionModal() {
+  const modal = document.getElementById('notion_modal_overlay');
+  if (modal) modal.style.display = 'none';
+}
+
+async function loadNotionTasks() {
+  const tbody = document.getElementById('notion_tasks_tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <span style="font-size: 24px;">⏳</span>
+          <span style="font-weight: 600;">Đang kết nối Notion và nạp danh sách 210 sản phẩm...</span>
+        </div>
+      </td>
+    </tr>
+  `;
+
+  try {
+    const res = await window.electronAPI.fetchNotionTasks('all');
+    if (res.success && Array.isArray(res.tasks)) {
+      notionTasksList = res.tasks;
+      updateNotionFilterCounts();
+      renderNotionTasks();
+      updateTerminal(`● Đã quét xong ${notionTasksList.length} nhiệm vụ từ Notion Camp Google ADS.`);
+    } else {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 30px; color: #dc2626;">
+            Lỗi nạp dữ liệu Notion: ${res.error || 'Không kết nối được API'}
+          </td>
+        </tr>
+      `;
+    }
+  } catch (err) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" style="text-align: center; padding: 30px; color: #dc2626;">
+          Lỗi: ${err.message}
+        </td>
+      </tr>
+    `;
+  }
+}
+
+function updateNotionFilterCounts() {
+  const total = notionTasksList.length;
+  const pending = notionTasksList.filter(t => t.status === 'Chờ tạo').length;
+  const exported = notionTasksList.filter(t => t.status === 'Đã xuất CSV').length;
+
+  const elAll = document.getElementById('count_all');
+  const elPending = document.getElementById('count_pending');
+  const elExported = document.getElementById('count_exported');
+
+  if (elAll) elAll.innerText = total;
+  if (elPending) elPending.innerText = pending;
+  if (elExported) elExported.innerText = exported;
+}
+
+function renderNotionTasks() {
+  const tbody = document.getElementById('notion_tasks_tbody');
+  if (!tbody) return;
+
+  let filtered = notionTasksList;
+
+  // Lọc theo tab trạng thái
+  if (currentNotionFilter !== 'all') {
+    filtered = filtered.filter(t => t.status === currentNotionFilter);
+  }
+
+  // Lọc theo từ khóa tìm kiếm
+  if (notionSearchKeyword.trim()) {
+    const kw = notionSearchKeyword.trim().toLowerCase();
+    filtered = filtered.filter(t => 
+      (t.title && t.title.toLowerCase().includes(kw)) ||
+      (t.category && t.category.toLowerCase().includes(kw)) ||
+      (t.csv_file && t.csv_file.toLowerCase().includes(kw))
+    );
+  }
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" style="text-align: center; padding: 30px; color: var(--text-muted);">
+          Không tìm thấy nhiệm vụ nào phù hợp với bộ lọc hiện tại.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  filtered.forEach(task => {
+    const tr = document.createElement('tr');
+    const isChecked = selectedNotionTasksSet.has(task.page_id);
+    if (isChecked) tr.classList.add('selected');
+
+    let badgeClass = 'gray';
+    if (task.status === 'Chờ tạo') badgeClass = 'yellow';
+    else if (task.status === 'Đã xuất CSV') badgeClass = 'green';
+    else if (task.status === 'Đang chạy Google Ads') badgeClass = 'purple';
+    else if (task.status === 'Đang xử lý') badgeClass = 'blue';
+
+    let dateDisplay = '--';
+    if (task.updated_at) {
+      try {
+        const d = new Date(task.updated_at);
+        dateDisplay = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+      } catch (e) {}
+    }
+
+    const budgetFormatted = task.daily_budget ? `${Number(task.daily_budget).toLocaleString('vi-VN')} đ` : '100.000 đ';
+
+    tr.innerHTML = `
+      <td style="text-align: center;">
+        <input type="checkbox" class="cb-notion-row" data-id="${task.page_id}" ${isChecked ? 'checked' : ''}>
+      </td>
+      <td>
+        <div style="font-weight: 600; color: var(--text-primary); max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: text;" title="${task.title}">
+          ${task.title}
+        </div>
+      </td>
+      <td><span style="font-size: 11px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; color: var(--text-secondary);">${task.category || 'Chung'}</span></td>
+      <td style="font-weight: 600; color: var(--amber-text); white-space: nowrap;">${task.price || '--'}</td>
+      <td style="font-weight: 600; color: #166534; white-space: nowrap;">${budgetFormatted}</td>
+      <td>
+        <span class="notion-badge ${badgeClass}">● ${task.status}</span>
+      </td>
+      <td>
+        <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); max-width: 180px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${task.csv_file || 'Chưa có'}">
+          ${task.csv_file || '--'}
+        </span>
+      </td>
+      <td style="font-size: 11px; color: var(--text-muted); white-space: nowrap;">${dateDisplay}</td>
+      <td style="white-space: nowrap;">
+        <div style="display: flex; gap: 6px;">
+          ${task.url ? `<button class="btn-input-action btn-open-url" data-url="${task.url}" title="Xem sản phẩm trên web derma" style="font-size: 11px; padding: 3px 8px;">Web ↗</button>` : ''}
+          <button class="btn-input-action btn-single-run" data-id="${task.page_id}" title="Tạo ngay cho sản phẩm này" style="font-size: 11px; padding: 3px 8px; background: #e0f2fe; color: #0284c7; border-color: #bae6fd;">Tạo 🚀</button>
+        </div>
+      </td>
+    `;
+
+    // Row selection toggle
+    const cb = tr.querySelector('.cb-notion-row');
+    cb.addEventListener('change', (e) => {
+      e.stopPropagation();
+      if (cb.checked) {
+        selectedNotionTasksSet.add(task.page_id);
+        tr.classList.add('selected');
+      } else {
+        selectedNotionTasksSet.delete(task.page_id);
+        tr.classList.remove('selected');
+      }
+      updateNotionSelectedCount();
+    });
+
+    tr.addEventListener('click', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON') return;
+      cb.checked = !cb.checked;
+      cb.dispatchEvent(new Event('change'));
+    });
+
+    const btnWeb = tr.querySelector('.btn-open-url');
+    if (btnWeb) {
+      btnWeb.addEventListener('click', (e) => {
+        e.stopPropagation();
+        window.electronAPI.openExternalUrl(task.url);
+      });
+    }
+
+    const btnRun = tr.querySelector('.btn-single-run');
+    if (btnRun) {
+      btnRun.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedNotionTasksSet.clear();
+        selectedNotionTasksSet.add(task.page_id);
+        updateNotionSelectedCount();
+        executeNotionCampaignsFlow();
+      });
+    }
+
+    tbody.appendChild(tr);
+  });
+
+  updateNotionSelectedCount();
+}
+
+function updateNotionSelectedCount() {
+  const count = selectedNotionTasksSet.size;
+  const countEl = document.getElementById('notion_selected_count');
+  if (countEl) countEl.innerText = `Đã chọn: ${count}`;
+
+  const cbAll = document.getElementById('cb_notion_select_all');
+  if (cbAll) {
+    const rowCheckboxes = document.querySelectorAll('.cb-notion-row');
+    if (rowCheckboxes.length > 0 && count >= rowCheckboxes.length) {
+      cbAll.checked = true;
+    } else {
+      cbAll.checked = false;
+    }
+  }
+
+  const footerStatus = document.getElementById('notion_footer_status');
+  if (footerStatus) {
+    if (count === 0) {
+      footerStatus.innerText = 'Chưa chọn mục nào. Tích chọn sản phẩm để bắt đầu.';
+    } else {
+      footerStatus.innerText = `Đã chọn ${count} chiến dịch. Bấm nút bên phải để tạo tự động và cập nhật Notion.`;
+    }
+  }
+}
+
+async function executeNotionCampaignsFlow() {
+  if (selectedNotionTasksSet.size === 0) {
+    showToast('Vui lòng chọn ít nhất 1 sản phẩm/nhiệm vụ từ Notion!', 'error');
+    return;
+  }
+
+  const selectedTasks = notionTasksList.filter(t => selectedNotionTasksSet.has(t.page_id));
+  closeNotionModal();
+
+  // Hiển thị thanh tiến trình ở workspace chính
+  const progressCard = document.getElementById('process_progress_card');
+  const progressFill = document.getElementById('progress_fill');
+  const progressPercent = document.getElementById('progress_percentage');
+  const progressMainStatus = document.getElementById('progress_main_status');
+  const progressDetailStatus = document.getElementById('progress_detail_status');
+  const resultsSection = document.getElementById('results_section');
+
+  if (progressCard) progressCard.style.display = 'block';
+  if (resultsSection) resultsSection.style.display = 'none';
+
+  progressFill.style.width = '5%';
+  progressPercent.innerText = '5%';
+  progressMainStatus.innerText = `Đang bắt đầu tạo chiến dịch cho ${selectedTasks.length} sản phẩm từ Notion...`;
+  progressDetailStatus.innerText = 'Mỗi sản phẩm sẽ là 1 chiến dịch riêng (100k/ngày, Maximize conversions, Vietnam).';
+
+  updateTerminal(`🚀 Bắt đầu tạo ${selectedTasks.length} chiến dịch từ Notion Camp Google ADS...`);
+
+  try {
+    const res = await window.electronAPI.runNotionCampaigns({
+      tasks: selectedTasks,
+      campaignPrefix: document.getElementById('input_campaign_prefix').value.trim() || 'Chiến dịch SP - ',
+      dailyBudget: 100000,
+      customImagesDir: document.getElementById('cfg_root_images_dir').value.trim()
+    });
+
+    if (res.success) {
+      progressFill.style.width = '100%';
+      progressPercent.innerText = '100%';
+      progressMainStatus.innerText = '✓ Đã tạo xong toàn bộ chiến dịch và cập nhật Notion!';
+      progressDetailStatus.innerText = `File CSV Master: ${res.csv_file_name}`;
+
+      showToast(`Xuất CSV Master thành công & Đã cập nhật ${selectedTasks.length} sản phẩm lên Notion!`, 'success');
+      updateTerminal(`✓ Hoàn tất! File CSV Master: "${res.csv_file_name}". Đã cập nhật Notion thành công.`);
+
+      lastGeneratedResult = res;
+      displayResults(res);
+
+      // Tải lại dữ liệu Notion ngầm để cập nhật trạng thái mới
+      setTimeout(() => {
+        window.electronAPI.fetchNotionTasks('all').then(r => {
+          if (r.success) {
+            notionTasksList = r.tasks;
+            updateNotionFilterCounts();
+          }
+        });
+      }, 1000);
+    } else {
+      showToast(res.error || 'Lỗi khi tạo chiến dịch từ Notion', 'error');
+      updateTerminal(`✗ Lỗi: ${res.error}`);
+    }
+  } catch (err) {
+    showToast(`Lỗi: ${err.message}`, 'error');
+    updateTerminal(`✗ Lỗi ngoại lệ: ${err.message}`);
+  }
 }
