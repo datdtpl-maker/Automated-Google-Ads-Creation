@@ -1008,12 +1008,12 @@ async function executeBatchCampaign(sender, params) {
             percent: 96,
             step: 'csv_export',
             productTitle: productsResults[0]?.shortName || '',
-            message: `Đang xuất file CSV Master All-in-One & Sitelinks...`,
+            message: `Đang xuất file CSV Master All-in-One...`,
             detail: `Tổng hợp ${allRows.length} dòng dữ liệu`
         });
     }
 
-    // Xuất duy nhất 1 file CSV All-in-One Master chứa toàn bộ các nhóm
+    // Xuất duy nhất 1 file CSV All-in-One Master duy nhất chứa toàn bộ dữ liệu
     const outputDir = getDefaultOutputDir();
     const cleanTag = productsResults.length === 1 ? sanitizeFolderName(productsResults[0].shortName) : `batch_${productsResults.length}_san_pham`;
     const csvFileName = `google_ads_all_in_one_${cleanTag}.csv`;
@@ -1025,18 +1025,6 @@ async function executeBatchCampaign(sender, params) {
     }
 
     fs.writeFileSync(csvFilePath, '\uFEFF' + csvContentRows.join('\r\n'), 'utf8');
-
-    // Xuất thêm file CSV Sitelinks (Liên kết trang web) chuyên dụng cho Google Ads
-    const sitelinksFileName = `google_ads_sitelinks_${cleanTag}.csv`;
-    const sitelinksFilePath = path.join(outputDir, sitelinksFileName);
-    const SITELINK_HEADERS = ['Campaign', 'Link text', 'Final URL', 'Description line 1', 'Description line 2'];
-    const sitelinkCsvRows = [SITELINK_HEADERS.map(escapeCsv).join(',')];
-
-    // Thu thập danh sách các chiến dịch duy nhất đã tạo
-    const uniqueCampaigns = [...new Set(productsResults.map(p => p.targetCampName).filter(Boolean))];
-    if (uniqueCampaigns.length === 0 && effectiveCampaignName) {
-        uniqueCampaigns.push(effectiveCampaignName);
-    }
 
     const defaultSitelinks = [
         {
@@ -1065,20 +1053,6 @@ async function executeBatchCampaign(sender, params) {
         }
     ];
 
-    for (const cName of uniqueCampaigns) {
-        for (const st of defaultSitelinks) {
-            sitelinkCsvRows.push([
-                escapeCsv(cName),
-                escapeCsv(st.linkText),
-                escapeCsv(st.finalUrl),
-                escapeCsv(st.desc1),
-                escapeCsv(st.desc2)
-            ].join(','));
-        }
-    }
-
-    fs.writeFileSync(sitelinksFilePath, '\uFEFF' + sitelinkCsvRows.join('\r\n'), 'utf8');
-
     if (sender && typeof sender.send === 'function') {
         sender.send('batch-progress', {
             current: N,
@@ -1086,8 +1060,8 @@ async function executeBatchCampaign(sender, params) {
             percent: 100,
             step: 'completed',
             productTitle: productsResults[0]?.shortName || '',
-            message: `✓ Hoàn tất 100%! Đã tạo thành công dữ liệu và xuất file CSV Master & Sitelinks.`,
-            detail: `Files: ${csvFileName} & ${sitelinksFileName}`
+            message: `✓ Hoàn tất 100%! Đã tạo thành công dữ liệu và xuất file CSV Master duy nhất.`,
+            detail: `File CSV: ${csvFileName}`
         });
     }
 
@@ -1099,8 +1073,6 @@ async function executeBatchCampaign(sender, params) {
         successful_products: productsResults.length,
         csv_file_path: csvFilePath,
         csv_file_name: csvFileName,
-        sitelinks_file_path: sitelinksFilePath,
-        sitelinks_file_name: sitelinksFileName,
         sitelinks: defaultSitelinks,
         output_dir: outputDir,
         products_results: productsResults,

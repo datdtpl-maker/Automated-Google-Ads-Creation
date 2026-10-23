@@ -660,27 +660,6 @@ function setupEventListeners() {
     });
   }
 
-  // Nút sao chép đường dẫn file CSV Sitelinks
-  const btnCopySitelinksPath = document.getElementById('btn_copy_sitelinks_path');
-  if (btnCopySitelinksPath) {
-    btnCopySitelinksPath.addEventListener('click', () => {
-      if (lastGeneratedResult && lastGeneratedResult.sitelinks_file_path) {
-        navigator.clipboard.writeText(lastGeneratedResult.sitelinks_file_path);
-        showToast('Đã sao chép đường dẫn file Sitelinks CSV! (Bấm Ctrl+V tại ô File Name để chọn file)', 'success');
-      }
-    });
-  }
-
-  // Nút mở file CSV Sitelinks trong Explorer
-  const btnShowSitelinks = document.getElementById('btn_show_sitelinks_in_folder');
-  if (btnShowSitelinks) {
-    btnShowSitelinks.addEventListener('click', async () => {
-      if (lastGeneratedResult && lastGeneratedResult.sitelinks_file_path) {
-        await window.electronAPI.showItemInFolder(lastGeneratedResult.sitelinks_file_path);
-      }
-    });
-  }
-
   // Nút sao chép nội dung văn bản
   document.getElementById('btn_copy_all_headlines').addEventListener('click', () => {
     if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
@@ -992,10 +971,9 @@ function renderResults(data) {
 
   // 6. CSV Tab
   document.getElementById('label_csv_file_path').innerText = data.csv_file_path || '--';
-  const labelSitelinks = document.getElementById('label_sitelinks_file_path');
-  if (labelSitelinks) {
-    labelSitelinks.innerText = data.sitelinks_file_path || '--';
-  }
+
+  // Chuyển về Tab Preview xem trước mẫu quảng cáo đầu tiên khi hoàn tất
+  switchResultTab('tab_preview');
 
   resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

@@ -422,66 +422,33 @@
 
         <!-- Tab 6: CSV Export -->
         <div class="tab-pane" id="tab_csv">
-          <div style="display: flex; flex-direction: column; gap: 16px; max-width: 760px;">
-            <!-- Box 1: File CSV Master -->
-            <div style="background: var(--bg-subtle); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 18px; display: flex; flex-direction: column; gap: 12px;">
-              <div>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                    <span style="background: var(--google-blue); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">FILE 1</span>
-                    File CSV All-in-One Master (Chiến dịch, Nhóm, Mẫu QC RSA, Từ khóa)
-                  </h4>
-                  <span style="font-size: 11px; background: #e6f4ea; color: #137333; font-weight: 600; padding: 2px 8px; border-radius: 12px;">Tối đa hóa chuyển đổi • Location: Vietnam</span>
-                </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5;">
-                  File chuẩn Google Ads Bulk Upload chứa toàn bộ Cấp Chiến dịch (Ngân sách 100k/ngày, Maximize conversions, Vị trí Việt Nam, EU political ads: No), Nhóm quảng cáo, Mẫu quảng cáo RSA và Danh sách Từ khóa sạch.
-                </p>
+          <div style="background: var(--bg-subtle); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; gap: 16px; max-width: 760px;">
+            <div>
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <h4 style="font-size: 15px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                  File CSV All-in-One Master Chuẩn Google Ads
+                </h4>
+                <span style="font-size: 11px; background: #e6f4ea; color: #137333; font-weight: 600; padding: 3px 10px; border-radius: 12px;">Tối đa hóa chuyển đổi • Location: Vietnam</span>
               </div>
-
-              <div style="font-family: var(--font-mono); font-size: 12px; background: #ffffff; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-strong); color: var(--green-text); font-weight: 600;" id="label_csv_file_path">
-                --
-              </div>
-
-              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                <button class="btn-generate" id="btn_copy_csv_file_path" style="height: 36px; padding: 0 16px;">
-                  📋 Sao Chép Đường Dẫn File CSV Master
-                </button>
-                <button class="btn-header" id="btn_copy_csv_folder_path">
-                  📂 Sao Chép Thư Mục CSV
-                </button>
-                <button class="btn-header" id="btn_show_csv_in_folder">
-                  ↗ Mở File Trong Explorer
-                </button>
-              </div>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5;">
+                Duy nhất 1 file All-in-One chứa toàn bộ Chiến dịch (Ngân sách 100k/ngày, Vị trí Việt Nam, EU political ads: No), Nhóm quảng cáo, Mẫu quảng cáo RSA (15 tiêu đề, 4 mô tả) và Danh sách Từ khóa sạch. Sẵn sàng tải lên trực tiếp vào Google Ads.
+              </p>
             </div>
 
-            <!-- Box 2: File CSV Sitelinks -->
-            <div style="background: var(--bg-subtle); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 18px; display: flex; flex-direction: column; gap: 12px;">
-              <div>
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                  <h4 style="font-size: 14px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                    <span style="background: #137333; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">FILE 2</span>
-                    File CSV Sitelinks (Tiện ích Liên kết trang web Google Ads)
-                  </h4>
-                  <span style="font-size: 11px; background: #e8f0fe; color: #1a73e8; font-weight: 600; padding: 2px 8px; border-radius: 12px;">4 Liên kết trang web Khải Hoàn Derma</span>
-                </div>
-                <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px; line-height: 1.5;">
-                  File chuẩn Google Ads Bulk Upload dành cho Thành phần Liên kết trang web (Sitelink Assets), tự động gắn vào đúng tên Chiến dịch đã tạo.
-                </p>
-              </div>
+            <div style="font-family: var(--font-mono); font-size: 12px; background: #ffffff; padding: 12px 16px; border-radius: 6px; border: 1px solid var(--border-strong); color: var(--green-text); font-weight: 600;" id="label_csv_file_path">
+              --
+            </div>
 
-              <div style="font-family: var(--font-mono); font-size: 12px; background: #ffffff; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-strong); color: var(--google-blue); font-weight: 600;" id="label_sitelinks_file_path">
-                --
-              </div>
-
-              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                <button class="btn-generate" id="btn_copy_sitelinks_path" style="height: 36px; padding: 0 16px; background: #137333;">
-                  📋 Sao Chép Đường Dẫn File Sitelinks CSV
-                </button>
-                <button class="btn-header" id="btn_show_sitelinks_in_folder">
-                  ↗ Mở File Sitelinks Trong Explorer
-                </button>
-              </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+              <button class="btn-generate" id="btn_copy_csv_file_path" style="height: 38px; padding: 0 18px;">
+                📋 Sao Chép Đường Dẫn File CSV
+              </button>
+              <button class="btn-header" id="btn_copy_csv_folder_path">
+                📂 Sao Chép Thư Mục CSV
+              </button>
+              <button class="btn-header" id="btn_show_csv_in_folder">
+                ↗ Mở File Trong Explorer
+              </button>
             </div>
           </div>
         </div>

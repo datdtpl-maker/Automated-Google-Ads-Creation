@@ -881,20 +881,26 @@ body {
 .results-nav {
   display: flex;
   background: var(--bg-subtle);
-  border-bottom: 1px solid var(--border-main);
+  border-bottom: 2px solid var(--border-main);
   padding: 0 12px;
-  gap: 4px;
+  gap: 6px;
   overflow-x: auto;
+  flex-shrink: 0;
+  min-height: 48px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
 }
 
 .nav-tab {
-  padding: 12px 18px;
-  font-size: 12px;
+  padding: 0 18px;
+  height: 48px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--text-muted);
   background: transparent;
   border: none;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -903,18 +909,20 @@ body {
   white-space: nowrap;
   font-family: inherit;
   user-select: none;
+  flex-shrink: 0;
 }
 .nav-tab * {
   pointer-events: none;
 }
 .nav-tab:hover {
   color: var(--text-primary);
-  background: rgba(26, 115, 232, 0.05);
+  background: rgba(26, 115, 232, 0.08);
 }
 .nav-tab.active {
   color: var(--google-blue);
   border-bottom-color: var(--google-blue);
   background: var(--bg-surface);
+  font-weight: 700;
 }
 
 .tab-pane {
@@ -1259,12 +1267,18 @@ body {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
-.progress-step-item.active {
-  background: #e8f0fe;
-  color: var(--google-blue);
-  border-color: #1a73e8;
-  font-weight: 700;
-  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+.progress-step-item.active,
+.progress-step-item.done.active {
+  background: #1a73e8 !important;
+  color: #ffffff !important;
+  border-color: #1557b0 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.35) !important;
+}
+.progress-step-item.active:hover,
+.progress-step-item.done.active:hover {
+  background: #1557b0 !important;
+  color: #ffffff !important;
 }
 
 .progress-step-item.done {
