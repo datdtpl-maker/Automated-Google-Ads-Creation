@@ -576,13 +576,24 @@ ipcMain.handle('get-product-details', async (event, id) => {
 
 // 9. Cấu trúc Header chuẩn Google Ads Bulk Upload (Tự động tạo Chiến dịch, Ngân sách, Nhóm, RSA, Từ khóa)
 const CSV_HEADERS = [
-    'Campaign', 'Campaign Type', 'Campaign status', 'Budget', 'Budget type', 'Bid Strategy type',
+    'Campaign', 'Campaign Type', 'Campaign status', 'Budget', 'Budget type', 'Bid Strategy type', 'EU political ads',
     'Ad group', 'Ad group status', 'Max CPC',
     'Ad type', 'Final URL', 'Path 1', 'Path 2'
 ];
 for (let i = 1; i <= 15; i++) CSV_HEADERS.push(`Headline ${i}`);
 for (let i = 1; i <= 4; i++) CSV_HEADERS.push(`Description ${i}`);
 CSV_HEADERS.push('Keyword', 'Criterion Type');
+
+function createCsvRow(rowObj) {
+    const row = new Array(CSV_HEADERS.length).fill('');
+    for (const [colName, val] of Object.entries(rowObj)) {
+        const idx = CSV_HEADERS.indexOf(colName);
+        if (idx !== -1 && val !== undefined && val !== null) {
+            row[idx] = val;
+        }
+    }
+    return row;
+}
 
 function escapeCsv(val) {
     if (val === null || val === undefined) return '';
@@ -736,9 +747,24 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     if (!adGroupName.includes('|')) adGroupName = `${adGroupName} | ${todayStr}`;
 
     const isSeparate = campaignMode !== 'single';
-    let cleanPrefix = (campaignPrefix && campaignPrefix.trim()) ? campaignPrefix.trim() : 'Chiến dịch SP -';
-    if (!cleanPrefix.endsWith(' ')) cleanPrefix = cleanPrefix + ' ';
-    const targetCampName = isSeparate ? `${cleanPrefix}${shortName} | ${todayStr}` : effectiveCampaignName;
+    let targetCampName;
+    if (!isSeparate) {
+        targetCampName = effectiveCampaignName;
+    } else {
+        const rawPrefix = (campaignPrefix && campaignPrefix.trim()) ? campaignPrefix.trim() : 'Chiến dịch SP -';
+        if (rawPrefix.includes('|')) {
+            // Người dùng nhập nguyên tên đầy đủ (ví dụ: "Chiến dịch Adapex-BPO | 23/10")
+            targetCampName = rawPrefix.replace(/\s+/g, ' ').trim();
+        } else if (rawPrefix.toLowerCase().includes(shortName.toLowerCase())) {
+            // Đã có tên sản phẩm nhưng chưa có ngày
+            targetCampName = `${rawPrefix.replace(/\s+/g, ' ').trim()} | ${todayStr}`;
+        } else {
+            // Tiền tố thông thường
+            let cleanPrefix = rawPrefix;
+            if (!cleanPrefix.endsWith(' ') && !cleanPrefix.endsWith('-')) cleanPrefix += ' ';
+            targetCampName = `${cleanPrefix}${shortName} | ${todayStr}`;
+        }
+    }
 
     const adData = {
         campaign_name: targetCampName,
@@ -809,39 +835,41 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
 
     // Nếu ở chế độ "Mỗi sản phẩm 1 chiến dịch riêng" (separate): Tạo dòng Cấp Chiến Dịch với Ngân Sách
     if (isSeparate) {
-        const rowCamp = new Array(CSV_HEADERS.length).fill('');
-        rowCamp[0] = targetCampName;
-        rowCamp[1] = 'Search';
-        rowCamp[2] = 'Enabled';
-        rowCamp[3] = dailyBudget || 50000;
-        rowCamp[4] = 'Daily';
-        rowCamp[5] = 'Manual CPC';
-        productRows.push(rowCamp);
+        productRows.push(createCsvRow({
+            'Campaign': targetCampName,
+            'Campaign Type': 'Search',
+            'Campaign status': 'Enabled',
+            'Budget': dailyBudget || 50000,
+            'Budget type': 'Daily',
+            'Bid Strategy type': 'Manual CPC',
+            'EU political ads': 'No'
+        }));
     }
 
     // Dòng Nhóm quảng cáo
-    const rowAg = new Array(CSV_HEADERS.length).fill('');
-    rowAg[0] = targetCampName;
-    rowAg[6] = adGroupName;
-    rowAg[7] = 'Enabled';
-    rowAg[8] = effectiveMaxCpc;
-    productRows.push(rowAg);
+    productRows.push(createCsvRow({
+        'Campaign': targetCampName,
+        'Ad group': adGroupName,
+        'Ad group status': 'Enabled',
+        'Max CPC': effectiveMaxCpc
+    }));
 
     // Dòng Mẫu quảng cáo RSA
-    const rowAd = new Array(CSV_HEADERS.length).fill('');
-    rowAd[0] = targetCampName;
-    rowAd[6] = adGroupName;
-    rowAd[9] = 'Responsive search ad';
-    rowAd[10] = product.url;
-    rowAd[11] = path1;
-    rowAd[12] = path2;
+    const rsaData = {
+        'Campaign': targetCampName,
+        'Ad group': adGroupName,
+        'Ad type': 'Responsive search ad',
+        'Final URL': product.url,
+        'Path 1': path1,
+        'Path 2': path2
+    };
     for (let i = 0; i < 15; i++) {
-        rowAd[13 + i] = adData.headlines[i] || '';
+        rsaData[`Headline ${i + 1}`] = adData.headlines[i] || '';
     }
     for (let i = 0; i < 4; i++) {
-        rowAd[28 + i] = adData.descriptions[i] || '';
+        rsaData[`Description ${i + 1}`] = adData.descriptions[i] || '';
     }
-    productRows.push(rowAd);
+    productRows.push(createCsvRow(rsaData));
 
     // Dòng Danh sách Từ khóa đã làm sạch ký tự cấm
     for (const kwRaw of adData.keywords) {
@@ -860,13 +888,13 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
         kwText = kwText.replace(/[!@%,*+?=&^$~<>;:\\/]/g, ' ').replace(/\s+/g, ' ').trim();
         if (!kwText) continue;
 
-        const rowKw = new Array(CSV_HEADERS.length).fill('');
-        rowKw[0] = targetCampName;
-        rowKw[6] = adGroupName;
-        rowKw[8] = effectiveMaxCpc;
-        rowKw[32] = kwText;
-        rowKw[33] = criterion;
-        productRows.push(rowKw);
+        productRows.push(createCsvRow({
+            'Campaign': targetCampName,
+            'Ad group': adGroupName,
+            'Max CPC': effectiveMaxCpc,
+            'Keyword': kwText,
+            'Criterion Type': criterion
+        }));
     }
 
     return {
