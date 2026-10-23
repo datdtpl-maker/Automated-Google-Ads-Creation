@@ -1065,16 +1065,178 @@ body {
   background: var(--bg-subtle);
   position: relative;
   box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.gallery-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.1);
 }
 
 .gallery-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
   transition: transform 0.2s ease;
 }
 .gallery-item:hover img {
-  transform: scale(1.05);
+  transform: scale(1.04);
+}
+
+.gallery-item-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(15, 23, 42, 0.8);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 6px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(2px);
+}
+
+/* Real-time Execution Progress Card */
+.progress-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-main);
+  border-left: 4px solid var(--google-blue);
+  border-radius: var(--radius-lg);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow-card);
+  transition: all 0.3s ease;
+}
+
+.progress-card.completed {
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.progress-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.progress-status-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.progress-spinner-icon {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(26, 115, 232, 0.2);
+  border-top-color: var(--google-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.progress-card.completed .progress-spinner-icon {
+  border-color: #16a34a;
+  border-top-color: #16a34a;
+  animation: none;
+  background: #16a34a;
+  mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") no-repeat center / 13px;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") no-repeat center / 13px;
+}
+
+.progress-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.progress-main-status {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.progress-detail-status {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 750px;
+}
+
+.progress-percentage-badge {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--google-blue);
+  font-variant-numeric: tabular-nums;
+  min-width: 55px;
+  text-align: right;
+}
+
+.progress-card.completed .progress-percentage-badge {
+  color: #16a34a;
+}
+
+.progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #1a73e8, #4285f4);
+  border-radius: 999px;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 8px rgba(26, 115, 232, 0.3);
+}
+
+.progress-card.completed .progress-fill {
+  background: linear-gradient(90deg, #16a34a, #22c55e);
+  box-shadow: 0 0 8px rgba(22, 163, 74, 0.3);
+}
+
+.progress-steps-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.progress-step-item {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-weight: 600;
+  border: 1px solid var(--border-main);
+  transition: all 0.2s ease;
+}
+
+.progress-step-item.active {
+  background: #e8f0fe;
+  color: var(--google-blue);
+  border-color: #1a73e8;
+  font-weight: 700;
+}
+
+.progress-step-item.done {
+  background: #dcfce7;
+  color: #15803d;
+  border-color: #86efac;
 }
 
 /* Toast Notification */

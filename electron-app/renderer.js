@@ -665,11 +665,58 @@ async function generateCampaign() {
   btn.innerHTML = `<span>⏳ Đang xử lý ${selectedProductsList.length} ${modeText}...</span>`;
   updateTerminal(`[1/${selectedProductsList.length + 1}] Bắt đầu quy trình tạo Google Ads (${campaignMode === 'separate' ? 'Tạo Chiến dịch riêng biệt' : 'Gộp vào 1 chiến dịch'})...`);
 
+  // Khởi tạo và hiển thị Hộp thanh tiến trình trực quan
+  const progressCard = document.getElementById('process_progress_card');
+  const progressFill = document.getElementById('progress_fill');
+  const progressPct = document.getElementById('progress_percentage');
+  const progressMain = document.getElementById('progress_main_status');
+  const progressDetail = document.getElementById('progress_detail_status');
+  const stepAi = document.getElementById('step_ai');
+  const stepImg = document.getElementById('step_img');
+  const stepCsv = document.getElementById('step_csv');
+
+  if (progressCard) {
+    progressCard.style.display = 'flex';
+    progressCard.classList.remove('completed');
+    if (progressFill) progressFill.style.width = '3%';
+    if (progressPct) progressPct.innerText = '0%';
+    if (progressMain) progressMain.innerText = 'Đang khởi động tiến trình...';
+    if (progressDetail) progressDetail.innerText = `Chuẩn bị xử lý ${selectedProductsList.length} sản phẩm...`;
+    if (stepAi) stepAi.className = 'progress-step-item active';
+    if (stepImg) stepImg.className = 'progress-step-item';
+    if (stepCsv) stepCsv.className = 'progress-step-item';
+  }
+
   // Lắng nghe tiến độ batch real-time
   if (window.electronAPI.removeProgressListener) window.electronAPI.removeProgressListener();
   if (window.electronAPI.onProgress) {
     window.electronAPI.onProgress((data) => {
-      updateTerminal(`● [${data.current}/${data.total}] Đang xử lý: "${data.productTitle}"...`);
+      const pct = data.percent || 0;
+      if (progressFill) progressFill.style.width = `${pct}%`;
+      if (progressPct) progressPct.innerText = `${pct}%`;
+      if (progressMain) progressMain.innerText = data.message || 'Đang xử lý...';
+      if (progressDetail) progressDetail.innerText = data.detail || data.productTitle || '';
+
+      if (data.step?.startsWith('ai_')) {
+        if (stepAi) stepAi.className = 'progress-step-item active';
+        if (stepImg) stepImg.className = 'progress-step-item';
+        if (stepCsv) stepCsv.className = 'progress-step-item';
+      } else if (data.step?.startsWith('img_')) {
+        if (stepAi) stepAi.className = 'progress-step-item done';
+        if (stepImg) stepImg.className = 'progress-step-item active';
+        if (stepCsv) stepCsv.className = 'progress-step-item';
+      } else if (data.step?.startsWith('csv_')) {
+        if (stepAi) stepAi.className = 'progress-step-item done';
+        if (stepImg) stepImg.className = 'progress-step-item done';
+        if (stepCsv) stepCsv.className = 'progress-step-item active';
+      } else if (data.step === 'completed' || pct >= 100) {
+        if (stepAi) stepAi.className = 'progress-step-item done';
+        if (stepImg) stepImg.className = 'progress-step-item done';
+        if (stepCsv) stepCsv.className = 'progress-step-item done';
+        if (progressCard) progressCard.classList.add('completed');
+      }
+
+      updateTerminal(`● ${data.message}`);
     });
   }
 
@@ -687,7 +734,21 @@ async function generateCampaign() {
     if (!res.success) {
       showToast(res.error || 'Có lỗi xảy ra', 'error');
       updateTerminal(`✗ Thất bại: ${res.error}`);
+      if (progressCard) {
+        if (progressMain) progressMain.innerText = `✗ Lỗi: ${res.error}`;
+        if (progressDetail) progressDetail.innerText = 'Vui lòng kiểm tra lại Gemini API key hoặc thư mục lưu trữ.';
+      }
       return;
+    }
+
+    if (progressCard) {
+      progressCard.classList.add('completed');
+      if (progressFill) progressFill.style.width = '100%';
+      if (progressPct) progressPct.innerText = '100%';
+      if (progressMain) progressMain.innerText = '✓ Hoàn thành 100%! Đã tạo chiến dịch & tải ảnh thành công.';
+      if (stepAi) stepAi.className = 'progress-step-item done';
+      if (stepImg) stepImg.className = 'progress-step-item done';
+      if (stepCsv) stepCsv.className = 'progress-step-item done';
     }
 
     lastGeneratedResult = res;
@@ -812,8 +873,26 @@ function renderResults(data) {
   allImages.forEach(img => {
     const item = document.createElement('div');
     item.className = 'gallery-item';
-    item.title = img.fileName;
-    item.innerHTML = `<img src="file://${img.localPath}" alt="${img.fileName}">`;
+    item.title = `${img.fileName} (Bấm để xem vị trí file trong Explorer)`;
+
+    let imgSrc = img.dataUrl;
+    if (!imgSrc && img.localPath) {
+      const norm = img.localPath.replace(/\\/g, '/');
+      const fileUrl = norm.startsWith('/') ? `file://${norm}` : `file:///${norm}`;
+      imgSrc = encodeURI(fileUrl).replace(/#/g, '%23').replace(/\?/g, '%3F');
+    }
+
+    item.innerHTML = `
+      <img src="${imgSrc || 'icon.png'}" alt="${img.fileName}" loading="lazy">
+      <div class="gallery-item-name">${img.fileName}</div>
+    `;
+
+    item.addEventListener('click', () => {
+      if (img.localPath && window.electronAPI && window.electronAPI.showItemInFolder) {
+        window.electronAPI.showItemInFolder(img.localPath);
+      }
+    });
+
     gridImg.appendChild(item);
   });
 

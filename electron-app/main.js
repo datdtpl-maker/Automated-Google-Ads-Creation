@@ -181,7 +181,8 @@ function createWindow() {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
-            contextIsolation: true
+            contextIsolation: true,
+            webSecurity: false
         }
     });
 
@@ -593,9 +594,13 @@ function escapeCsv(val) {
 }
 
 // Hàm xử lý từng sản phẩm đơn lẻ (gọi AI, tải ảnh, tạo dòng CSV)
-async function processSingleProduct(product, { apiKey, model, campaignMode = 'separate', campaignPrefix = 'Chiến dịch SP - ', effectiveCampaignName, dailyBudget = 50000, effectiveMaxCpc, rootImgDir, todayStr }) {
+async function processSingleProduct(product, { apiKey, model, campaignMode = 'separate', campaignPrefix = 'Chiến dịch SP - ', effectiveCampaignName, dailyBudget = 50000, effectiveMaxCpc, rootImgDir, todayStr, onStepProgress }) {
     const cleanProdName = sanitizeFolderName(product.title || 'san_pham');
     const targetProductImgDir = path.join(rootImgDir, cleanProdName);
+
+    if (onStepProgress) {
+        onStepProgress('ai_start', 0.1, `Đang kết nối Gemini AI (${model}) tạo 15 Tiêu đề & 4 Mô tả...`);
+    }
 
     const prompt = `
 Bạn là chuyên gia thiết lập Google Ads Search chuyên nghiệp cấp cao.
@@ -748,28 +753,43 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
         images: product.images || []
     };
 
+    if (onStepProgress) {
+        onStepProgress('ai_done', 0.45, `AI đã tạo xong ${validHeadlines.length} Tiêu đề & ${validDescriptions.length} Mô tả. Bắt đầu tải ảnh...`);
+    }
+
     // Tải ảnh sản phẩm về thư mục
     const downloadedImages = [];
+    const totalImgs = (product.images || []).length;
     try {
         if (!fs.existsSync(targetProductImgDir)) {
             fs.mkdirSync(targetProductImgDir, { recursive: true });
         }
-        for (let i = 0; i < (product.images || []).length; i++) {
+        for (let i = 0; i < totalImgs; i++) {
             const imgUrl = product.images[i];
             const extMatch = imgUrl.match(/\.(jpg|jpeg|png|webp)/i);
             const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
             const fileName = `image_${i + 1}.${ext}`;
             const destPath = path.join(targetProductImgDir, fileName);
 
+            if (onStepProgress) {
+                const subP = 0.45 + (((i + 1) / Math.max(1, totalImgs)) * 0.45);
+                onStepProgress('img_downloading', subP, `Đang tải ảnh [${i + 1}/${totalImgs}]: ${fileName}`);
+            }
+
             try {
                 const imgRes = await fetch(imgUrl, { signal: AbortSignal.timeout(10000) });
                 if (imgRes.ok) {
                     const arrayBuffer = await imgRes.arrayBuffer();
-                    fs.writeFileSync(destPath, Buffer.from(arrayBuffer));
+                    const buf = Buffer.from(arrayBuffer);
+                    fs.writeFileSync(destPath, buf);
+
+                    const mimeType = ext === 'png' ? 'image/png' : (ext === 'webp' ? 'image/webp' : 'image/jpeg');
+                    const base64Data = buf.toString('base64');
                     downloadedImages.push({
                         url: imgUrl,
                         fileName: fileName,
-                        localPath: destPath
+                        localPath: destPath,
+                        dataUrl: `data:${mimeType};base64,${base64Data}`
                     });
                 }
             } catch (err) {
@@ -778,6 +798,10 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
         }
     } catch (e) {
         console.error('Lỗi tạo thư mục ảnh:', e);
+    }
+
+    if (onStepProgress) {
+        onStepProgress('csv_rows', 0.95, `Đang chuẩn bị dữ liệu Google Ads CSV cho "${shortName}"...`);
     }
 
     // Tạo các dòng dữ liệu CSV cho sản phẩm này
@@ -881,17 +905,27 @@ async function executeBatchCampaign(sender, params) {
 
     const allRows = [];
     const productsResults = [];
+    const N = products.length;
 
-    for (let i = 0; i < products.length; i++) {
+    for (let i = 0; i < N; i++) {
         const prod = products[i];
-        if (sender && typeof sender.send === 'function') {
-            sender.send('batch-progress', {
-                current: i + 1,
-                total: products.length,
-                productTitle: prod.title,
-                message: `[${i + 1}/${products.length}] Đang xử lý sản phẩm "${prod.title}"...`
-            });
-        }
+
+        const sendBatchStep = (stepKey, subRatio, msg) => {
+            const overallPercent = Math.min(99, Math.round(((i + subRatio) / N) * 100));
+            if (sender && typeof sender.send === 'function') {
+                sender.send('batch-progress', {
+                    current: i + 1,
+                    total: N,
+                    percent: overallPercent,
+                    step: stepKey,
+                    productTitle: prod.title,
+                    message: N > 1 ? `[${i + 1}/${N}] ${msg}` : msg,
+                    detail: prod.title
+                });
+            }
+        };
+
+        sendBatchStep('ai_start', 0.05, `Bắt đầu xử lý: "${prod.title}"`);
 
         const res = await processSingleProduct(prod, {
             apiKey,
@@ -902,7 +936,10 @@ async function executeBatchCampaign(sender, params) {
             dailyBudget: effectiveDailyBudget,
             effectiveMaxCpc,
             rootImgDir,
-            todayStr
+            todayStr,
+            onStepProgress: (stepKey, subRatio, msg) => {
+                sendBatchStep(stepKey, subRatio, msg);
+            }
         });
 
         if (res.success) {
@@ -917,6 +954,18 @@ async function executeBatchCampaign(sender, params) {
         return { success: false, error: 'Không thể tạo dữ liệu quảng cáo cho các sản phẩm đã chọn.' };
     }
 
+    if (sender && typeof sender.send === 'function') {
+        sender.send('batch-progress', {
+            current: N,
+            total: N,
+            percent: 96,
+            step: 'csv_export',
+            productTitle: productsResults[0]?.shortName || '',
+            message: `Đang xuất file CSV Master All-in-One...`,
+            detail: `Tổng hợp ${allRows.length} dòng dữ liệu`
+        });
+    }
+
     // Xuất duy nhất 1 file CSV All-in-One Master chứa toàn bộ các nhóm
     const outputDir = getDefaultOutputDir();
     const cleanTag = productsResults.length === 1 ? sanitizeFolderName(productsResults[0].shortName) : `batch_${productsResults.length}_san_pham`;
@@ -929,6 +978,18 @@ async function executeBatchCampaign(sender, params) {
     }
 
     fs.writeFileSync(csvFilePath, '\uFEFF' + csvContentRows.join('\r\n'), 'utf8');
+
+    if (sender && typeof sender.send === 'function') {
+        sender.send('batch-progress', {
+            current: N,
+            total: N,
+            percent: 100,
+            step: 'completed',
+            productTitle: productsResults[0]?.shortName || '',
+            message: `✓ Hoàn tất 100%! Đã tạo thành công dữ liệu và xuất file CSV Master.`,
+            detail: `File CSV: ${csvFileName}`
+        });
+    }
 
     return {
         success: true,
