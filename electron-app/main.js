@@ -1144,9 +1144,10 @@ function callNotionApi(pathStr, method = 'GET', bodyObj = null) {
         }
 
         const req = https.request(options, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
             res.on('end', () => {
+                const data = Buffer.concat(chunks).toString('utf8');
                 try {
                     const json = JSON.parse(data);
                     if (res.statusCode >= 200 && res.statusCode < 300) {
@@ -1192,14 +1193,14 @@ async function fetchNotionTasksFromDatabase(filterStatus = null) {
         if (res.data?.results) {
             for (const r of res.data.results) {
                 const props = r.properties || {};
-                const title = props['Tên Chiến Dịch / Sản Phẩm']?.title?.[0]?.plain_text || 'Không có tên';
-                const status = props['Trạng Thái']?.select?.name || 'Chờ tạo';
+                const title = (props['Tên Chiến Dịch / Sản Phẩm']?.title || []).map(t => t.plain_text).join('') || 'Không có tên';
+                const status = props['Trạng Thái']?.select?.name || 'Chưa xử lý';
                 const statusColor = props['Trạng Thái']?.select?.color || 'default';
                 const url = props['URL Web Derma']?.url || '';
-                const price = props['Giá Bán']?.rich_text?.[0]?.plain_text || '';
+                const price = (props['Giá Bán']?.rich_text || []).map(t => t.plain_text).join('') || '';
                 const category = props['Danh Mục']?.select?.name || '';
                 const dailyBudget = props['Ngân Sách Ngày']?.number || 100000;
-                const csvFile = props['File CSV']?.rich_text?.[0]?.plain_text || '';
+                const csvFile = (props['File CSV']?.rich_text || []).map(t => t.plain_text).join('') || '';
                 const updatedAt = props['Ngày Cập Nhật']?.date?.start || '';
 
                 allRows.push({
@@ -1270,7 +1271,7 @@ async function syncNotionProductsFromCache() {
                     title: [{ text: { content: p.name.slice(0, 100) } }]
                 },
                 'Trạng Thái': {
-                    select: { name: 'Chờ tạo' }
+                    select: { name: 'Chưa xử lý' }
                 },
                 'URL Web Derma': p.permalink ? { url: p.permalink } : undefined,
                 'Giá Bán': {

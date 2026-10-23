@@ -1266,17 +1266,20 @@ function updateNotionFilterCounts() {
   const pending = notionTasksList.filter(t => t.status === 'Chờ tạo').length;
   const running = notionTasksList.filter(t => t.status === 'Đang chạy Google Ads').length;
   const unprocessed = notionTasksList.filter(t => t.status === 'Chưa xử lý').length;
+  const rejected = notionTasksList.filter(t => t.status === 'Từ chối').length;
 
   const elAll = document.getElementById('count_all');
   const elPending = document.getElementById('count_pending');
   const elRunning = document.getElementById('count_running');
   const elUnprocessed = document.getElementById('count_unprocessed');
+  const elRejected = document.getElementById('count_rejected');
   const hubPendingBadge = document.getElementById('hub_pending_badge');
 
   if (elAll) elAll.innerText = total;
   if (elPending) elPending.innerText = pending;
   if (elRunning) elRunning.innerText = running;
   if (elUnprocessed) elUnprocessed.innerText = unprocessed;
+  if (elRejected) elRejected.innerText = rejected;
 
   if (hubPendingBadge) {
     hubPendingBadge.innerText = `${pending} Chờ tạo`;
@@ -1364,9 +1367,8 @@ function renderNotionTasks() {
 
     let badgeClass = 'gray';
     if (task.status === 'Chờ tạo') badgeClass = 'yellow';
-    else if (task.status === 'Đã xuất CSV') badgeClass = 'green';
     else if (task.status === 'Đang chạy Google Ads') badgeClass = 'purple';
-    else if (task.status === 'Đang xử lý') badgeClass = 'blue';
+    else if (task.status === 'Từ chối') badgeClass = 'red';
 
     let dateDisplay = '--';
     if (task.updated_at) {
@@ -1522,7 +1524,7 @@ async function executeNotionCampaignsFlow() {
       updateTerminal(`✓ Hoàn tất! File CSV Master: "${res.csv_file_name}". Trạng thái Notion đã cập nhật: "Đang chạy Google Ads".`);
 
       lastGeneratedResult = res;
-      displayResults(res);
+      renderResults(res);
 
       // Tải lại dữ liệu Notion ngầm để cập nhật trạng thái mới
       setTimeout(() => {

@@ -1664,6 +1664,11 @@ body {
   color: #475569;
   border: 1px solid #e2e8f0;
 }
+.notion-badge.red {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
 
 .notion-modal-footer {
   padding: 14px 20px;
