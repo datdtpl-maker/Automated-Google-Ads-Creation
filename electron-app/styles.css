@@ -391,7 +391,7 @@ body {
   flex-direction: column;
   overflow-y: auto;
   background-color: var(--bg-app);
-  padding: 24px;
+  padding: 24px 24px 80px 24px;
   gap: 18px;
 }
 
@@ -839,6 +839,7 @@ body {
   box-shadow: 0 2px 8px rgba(26, 115, 232, 0.35);
   transition: all 0.15s ease;
   height: 42px;
+  line-height: normal;
   font-family: inherit;
 }
 .btn-generate:hover {
@@ -874,8 +875,8 @@ body {
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   box-shadow: var(--shadow-card);
+  margin-bottom: 30px;
 }
 
 .results-nav {
@@ -926,7 +927,7 @@ body {
 }
 
 .tab-pane {
-  padding: 24px;
+  padding: 24px 24px 40px 24px;
   display: none;
 }
 .tab-pane.active {
@@ -1026,7 +1027,8 @@ body {
   background: var(--bg-surface);
   border: 1px solid var(--border-main);
   border-radius: var(--radius-sm);
-  padding: 10px 14px;
+  padding: 12px 14px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1036,8 +1038,10 @@ body {
 
 .asset-text {
   font-size: 13px;
+  line-height: 1.5;
   color: var(--text-primary);
   flex: 1;
+  word-break: break-word;
 }
 
 .asset-meta {
