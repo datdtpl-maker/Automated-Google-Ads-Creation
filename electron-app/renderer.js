@@ -47,6 +47,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (lbl) lbl.innerText = `Đồng bộ SP (${res.total_cached})`;
     }
   } catch (e) {}
+
+  // Quét ngầm số lượng nhiệm vụ Notion ban đầu để cập nhật badge
+  setTimeout(async () => {
+    try {
+      const resN = await window.electronAPI.fetchNotionTasks('all');
+      if (resN.success && Array.isArray(resN.tasks)) {
+        notionTasksList = resN.tasks;
+        updateNotionFilterCounts();
+      }
+    } catch (e) {}
+  }, 800);
 });
 
 // Kiểm tra và khử mojibake
@@ -468,8 +479,15 @@ function setupEventListeners() {
     });
   }
 
+  const btnOpenNotionWebBanner = document.getElementById('btn_open_notion_web_banner');
+  if (btnOpenNotionWebBanner) {
+    btnOpenNotionWebBanner.addEventListener('click', () => {
+      window.electronAPI.openExternalUrl('https://app.notion.com/p/40270655a9aa81a093d6dae93c86f895');
+    });
+  }
+
   // Filter tabs trong Notion Modal
-  ['all', 'Chờ tạo', 'Đã xuất CSV'].forEach(st => {
+  ['Chờ tạo', 'Chưa xử lý', 'Đã xuất CSV', 'all'].forEach(st => {
     const btnTab = document.querySelector(`.notion-tab-btn[data-status="${st}"]`);
     if (btnTab) {
       btnTab.addEventListener('click', () => {
@@ -1178,15 +1196,13 @@ function renderResults(data) {
 
 let notionTasksList = [];
 let selectedNotionTasksSet = new Set();
-let currentNotionFilter = 'all';
+let currentNotionFilter = 'Chờ tạo';
 let notionSearchKeyword = '';
 
 async function openNotionModal() {
   const modal = document.getElementById('notion_modal_overlay');
   if (modal) modal.style.display = 'flex';
-  if (notionTasksList.length === 0) {
-    await loadNotionTasks();
-  }
+  await loadNotionTasks();
 }
 
 function closeNotionModal() {
@@ -1203,7 +1219,7 @@ async function loadNotionTasks() {
       <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">
         <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
           <span style="font-size: 24px;">⏳</span>
-          <span style="font-weight: 600;">Đang kết nối Notion và nạp danh sách 210 sản phẩm...</span>
+          <span style="font-weight: 600;">Đang kết nối Notion và quét danh sách sản phẩm...</span>
         </div>
       </td>
     </tr>
@@ -1214,6 +1230,15 @@ async function loadNotionTasks() {
     if (res.success && Array.isArray(res.tasks)) {
       notionTasksList = res.tasks;
       updateNotionFilterCounts();
+
+      // Nếu đang ở tab Chờ tạo, tự động tích chọn các mục chờ tạo
+      if (currentNotionFilter === 'Chờ tạo') {
+        selectedNotionTasksSet.clear();
+        notionTasksList.forEach(t => {
+          if (t.status === 'Chờ tạo') selectedNotionTasksSet.add(t.page_id);
+        });
+      }
+
       renderNotionTasks();
       updateTerminal(`● Đã quét xong ${notionTasksList.length} nhiệm vụ từ Notion Camp Google ADS.`);
     } else {
@@ -1239,15 +1264,32 @@ async function loadNotionTasks() {
 function updateNotionFilterCounts() {
   const total = notionTasksList.length;
   const pending = notionTasksList.filter(t => t.status === 'Chờ tạo').length;
+  const unprocessed = notionTasksList.filter(t => t.status === 'Chưa xử lý').length;
   const exported = notionTasksList.filter(t => t.status === 'Đã xuất CSV').length;
 
   const elAll = document.getElementById('count_all');
   const elPending = document.getElementById('count_pending');
+  const elUnprocessed = document.getElementById('count_unprocessed');
   const elExported = document.getElementById('count_exported');
+  const hubPendingBadge = document.getElementById('hub_pending_badge');
 
   if (elAll) elAll.innerText = total;
   if (elPending) elPending.innerText = pending;
+  if (elUnprocessed) elUnprocessed.innerText = unprocessed;
   if (elExported) elExported.innerText = exported;
+
+  if (hubPendingBadge) {
+    hubPendingBadge.innerText = `${pending} Chờ tạo`;
+    if (pending > 0) {
+      hubPendingBadge.style.background = '#fef3c7';
+      hubPendingBadge.style.color = '#92400e';
+      hubPendingBadge.style.borderColor = '#fde68a';
+    } else {
+      hubPendingBadge.style.background = '#f1f5f9';
+      hubPendingBadge.style.color = '#64748b';
+      hubPendingBadge.style.borderColor = '#e2e8f0';
+    }
+  }
 }
 
 function renderNotionTasks() {
@@ -1272,13 +1314,45 @@ function renderNotionTasks() {
   }
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="9" style="text-align: center; padding: 30px; color: var(--text-muted);">
-          Không tìm thấy nhiệm vụ nào phù hợp với bộ lọc hiện tại.
-        </td>
-      </tr>
-    `;
+    if (currentNotionFilter === 'Chờ tạo') {
+      const unprocessedCount = notionTasksList.filter(t => t.status === 'Chưa xử lý').length;
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 48px 20px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
+            <div style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
+              Chưa có sản phẩm nào ở trạng thái "Chờ tạo" trên Notion
+            </div>
+            <div style="font-size: 13px; color: var(--text-secondary); max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
+              Toàn bộ ${notionTasksList.length} sản phẩm đang ở trạng thái <b>"Chưa xử lý"</b>.<br>
+              Khi cần lên camp sản phẩm nào, Admin chỉ cần mở Notion chuyển sản phẩm đó sang <b>"Chờ tạo"</b> rồi bấm quét lại, hoặc chuyển sang tab <b>"Chưa xử lý"</b> bên trên để chọn trực tiếp ngay tại đây.
+            </div>
+            <button type="button" class="btn-hub-scan" id="btn_switch_unprocessed_tab" style="margin: 0 auto; font-size: 12px; padding: 8px 18px;">
+              👉 Xem danh sách "Chưa xử lý" (${unprocessedCount})
+            </button>
+          </td>
+        </tr>
+      `;
+      const btnSwitch = document.getElementById('btn_switch_unprocessed_tab');
+      if (btnSwitch) {
+        btnSwitch.addEventListener('click', () => {
+          document.querySelectorAll('.notion-tab-btn').forEach(b => b.classList.remove('active'));
+          const unTab = document.getElementById('tab_notion_unprocessed');
+          if (unTab) unTab.classList.add('active');
+          currentNotionFilter = 'Chưa xử lý';
+          renderNotionTasks();
+        });
+      }
+    } else {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="9" style="text-align: center; padding: 30px; color: var(--text-muted);">
+            Không tìm thấy nhiệm vụ nào phù hợp với bộ lọc hiện tại.
+          </td>
+        </tr>
+      `;
+    }
+    updateNotionSelectedCount();
     return;
   }
 
