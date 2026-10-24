@@ -578,32 +578,7 @@ function setupEventListeners() {
     btnExecuteNotion.addEventListener('click', executeNotionCampaignsFlow);
   }
 
-  // Chuyển đổi chế độ Chiến dịch (Tách riêng từng sản phẩm vs Gộp chung)
-  const radioSeparate = document.getElementById('radio_mode_separate');
-  const radioSingle = document.getElementById('radio_mode_single');
-  const labelSeparate = document.getElementById('label_mode_separate');
-  const labelSingle = document.getElementById('label_mode_single');
-  const grpCampName = document.getElementById('grp_campaign_name');
-  const grpCampPrefix = document.getElementById('grp_campaign_prefix');
-  const grpDailyBudget = document.getElementById('grp_daily_budget');
-  const campaignBar = document.querySelector('.campaign-bar');
 
-  function updateCampaignModeUI() {
-    const isSeparate = radioSeparate.checked;
-    labelSeparate.classList.toggle('active', isSeparate);
-    labelSingle.classList.toggle('active', !isSeparate);
-    if (grpCampName) grpCampName.style.display = isSeparate ? 'none' : 'flex';
-    if (grpCampPrefix) grpCampPrefix.style.display = isSeparate ? 'flex' : 'none';
-    if (grpDailyBudget) grpDailyBudget.style.display = isSeparate ? 'flex' : 'none';
-    if (campaignBar) {
-      campaignBar.style.gridTemplateColumns = isSeparate ? '1.2fr 1fr 1fr auto' : '2fr 1fr auto';
-    }
-  }
-
-  if (radioSeparate && radioSingle) {
-    radioSeparate.addEventListener('change', updateCampaignModeUI);
-    radioSingle.addEventListener('change', updateCampaignModeUI);
-  }
 
   // Nút xóa tất cả sản phẩm hàng loạt
   const btnClearBatch = document.getElementById('btn_clear_batch');
@@ -919,18 +894,15 @@ async function generateCampaign() {
   }
 
   const btn = document.getElementById('btn_generate_campaign');
-  const campaignMode = document.querySelector('input[name="campaign_mode"]:checked')?.value || 'separate';
+  const campaignMode = 'separate';
   const campaignPrefix = document.getElementById('input_campaign_prefix').value.trim() || 'Chiến dịch SP - ';
-  const campaignName = document.getElementById('input_campaign_name').value.trim();
-  const dailyBudget = parseInt(document.getElementById('input_daily_budget').value, 10) || 50000;
+  const dailyBudget = parseInt(document.getElementById('input_daily_budget').value, 10) || 100000;
   const maxCpc = parseInt(document.getElementById('input_max_cpc').value, 10) || 2000;
   const customImagesDir = document.getElementById('cfg_root_images_dir').value.trim();
 
   btn.disabled = true;
-  const isBatch = selectedProductsList.length > 1;
-  const modeText = campaignMode === 'separate' ? 'Chiến dịch riêng' : 'Nhóm quảng cáo';
-  btn.innerHTML = `<span>⏳ Đang xử lý ${selectedProductsList.length} ${modeText}...</span>`;
-  updateTerminal(`[1/${selectedProductsList.length + 1}] Bắt đầu quy trình tạo Google Ads (${campaignMode === 'separate' ? 'Tạo Chiến dịch riêng biệt' : 'Gộp vào 1 chiến dịch'})...`);
+  btn.innerHTML = `<span>⏳ Đang xử lý ${selectedProductsList.length} chiến dịch riêng...</span>`;
+  updateTerminal(`[1/${selectedProductsList.length + 1}] Bắt đầu quy trình tạo Google Ads (Mỗi sản phẩm 1 Chiến dịch riêng biệt)...`);
 
   // Khởi tạo và hiển thị Hộp thanh tiến trình trực quan
   const progressCard = document.getElementById('process_progress_card');
@@ -990,9 +962,8 @@ async function generateCampaign() {
   try {
     const res = await window.electronAPI.generateBatchCampaign({
       products: selectedProductsList,
-      campaignMode,
+      campaignMode: 'separate',
       campaignPrefix,
-      campaignName,
       dailyBudget,
       maxCpc,
       customImagesDir
@@ -1020,16 +991,8 @@ async function generateCampaign() {
 
     lastGeneratedResult = res;
 
-    if (res.campaign_mode === 'separate') {
-      updateTerminal(`✓ Hoàn tất! Đã tạo ${res.successful_products} Chiến dịch riêng biệt (tự động tạo Ngân sách ngày & Nhóm) trong file CSV Master.`);
-      showToast(`Tạo thành công ${res.successful_products} Chiến dịch riêng biệt!`, 'success');
-    } else if (res.is_batch) {
-      updateTerminal(`✓ Thành công! Đã tạo ${res.successful_products} nhóm quảng cáo trong file CSV Master duy nhất.`);
-      showToast(`Tạo thành công ${res.successful_products} nhóm quảng cáo hàng loạt!`, 'success');
-    } else {
-      updateTerminal(`✓ Thành công! Đã tạo quảng cáo, tải ${res.downloaded_images?.length || 0} ảnh và xuất CSV All-in-One.`);
-      showToast(`Đã tạo chiến dịch thành công cho ${selectedProductsList[0].title}!`, 'success');
-    }
+    updateTerminal(`✓ Hoàn tất! Đã tạo ${res.successful_products} Chiến dịch riêng biệt (tự động tạo Ngân sách ngày & Nhóm riêng) trong file CSV Master.`);
+    showToast(`Tạo thành công ${res.successful_products} Chiến dịch riêng biệt!`, 'success');
 
     renderResults(res);
   } catch (e) {

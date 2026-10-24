@@ -774,24 +774,20 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     if (!adGroupName.startsWith('Nhóm ')) adGroupName = `Nhóm ${adGroupName}`;
     if (!adGroupName.includes('|')) adGroupName = `${adGroupName} | ${todayStr}`;
 
-    const isSeparate = campaignMode !== 'single';
+    const isSeparate = true;
     let targetCampName;
-    if (!isSeparate) {
-        targetCampName = effectiveCampaignName;
+    const rawPrefix = (campaignPrefix && campaignPrefix.trim()) ? campaignPrefix.trim() : 'Chiến dịch SP -';
+    if (rawPrefix.includes('|')) {
+        // Người dùng nhập nguyên tên đầy đủ (ví dụ: "Chiến dịch Adapex-BPO | 23/10")
+        targetCampName = rawPrefix.replace(/\s+/g, ' ').trim();
+    } else if (rawPrefix.toLowerCase().includes(shortName.toLowerCase())) {
+        // Đã có tên sản phẩm nhưng chưa có ngày
+        targetCampName = `${rawPrefix.replace(/\s+/g, ' ').trim()} | ${todayStr}`;
     } else {
-        const rawPrefix = (campaignPrefix && campaignPrefix.trim()) ? campaignPrefix.trim() : 'Chiến dịch SP -';
-        if (rawPrefix.includes('|')) {
-            // Người dùng nhập nguyên tên đầy đủ (ví dụ: "Chiến dịch Adapex-BPO | 23/10")
-            targetCampName = rawPrefix.replace(/\s+/g, ' ').trim();
-        } else if (rawPrefix.toLowerCase().includes(shortName.toLowerCase())) {
-            // Đã có tên sản phẩm nhưng chưa có ngày
-            targetCampName = `${rawPrefix.replace(/\s+/g, ' ').trim()} | ${todayStr}`;
-        } else {
-            // Tiền tố thông thường
-            let cleanPrefix = rawPrefix;
-            if (!cleanPrefix.endsWith(' ') && !cleanPrefix.endsWith('-')) cleanPrefix += ' ';
-            targetCampName = `${cleanPrefix}${shortName} | ${todayStr}`;
-        }
+        // Tiền tố thông thường
+        let cleanPrefix = rawPrefix;
+        if (!cleanPrefix.endsWith(' ') && !cleanPrefix.endsWith('-')) cleanPrefix += ' ';
+        targetCampName = `${cleanPrefix}${shortName} | ${todayStr}`;
     }
 
     const adData = {
@@ -936,9 +932,10 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
     };
 }
 
-// 10. Tạo chiến dịch hàng loạt cho nhiều sản phẩm
+// 10. Tạo chiến dịch hàng loạt (Mỗi sản phẩm là 1 chiến dịch riêng biệt)
 async function executeBatchCampaign(sender, params) {
-    const { products, campaignMode = 'separate', campaignPrefix, campaignName, dailyBudget = 100000, maxCpc, customImagesDir } = params;
+    const { products, campaignPrefix, dailyBudget = 100000, maxCpc, customImagesDir } = params;
+    const campaignMode = 'separate';
     if (!products || !Array.isArray(products) || products.length === 0) {
         return { success: false, error: 'Chưa chọn sản phẩm nào để tạo chiến dịch!' };
     }
@@ -953,7 +950,6 @@ async function executeBatchCampaign(sender, params) {
     const today = new Date();
     const todayStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
     const effectivePrefix = (campaignPrefix && campaignPrefix.trim()) ? campaignPrefix.trim() : (cfg.campaign_prefix || "Chiến dịch SP - ");
-    const effectiveCampaignName = campaignName || cfg.default_campaign_name || "Chiến dịch sản phẩm Web Derma | 21/10";
     const effectiveMaxCpc = maxCpc ? parseInt(maxCpc, 10) : (cfg.max_cpc || 2000);
     const effectiveDailyBudget = dailyBudget ? parseInt(dailyBudget, 10) : (cfg.daily_budget || 100000);
     const rootImgDir = (customImagesDir && customImagesDir.trim()) ? customImagesDir.trim() : (cfg.root_images_dir || getDefaultImagesDir());
@@ -961,20 +957,6 @@ async function executeBatchCampaign(sender, params) {
     const allRows = [];
     const productsResults = [];
     const N = products.length;
-
-    // Nếu ở chế độ gom chung vào 1 chiến dịch, thêm dòng Cấp Chiến Dịch ở đầu file
-    if (campaignMode === 'single') {
-        allRows.push(createCsvRow({
-            'Campaign': effectiveCampaignName,
-            'Campaign Type': 'Search',
-            'Campaign status': 'Enabled',
-            'Budget': effectiveDailyBudget,
-            'Budget type': 'Daily',
-            'Bid Strategy type': 'Maximize conversions',
-            'EU political ads': 'No',
-            'Location': 'Vietnam'
-        }));
-    }
 
     for (let i = 0; i < N; i++) {
         const prod = products[i];

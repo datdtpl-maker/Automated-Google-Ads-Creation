@@ -289,25 +289,18 @@
         <div class="batch-chips-list" id="batch_chips_list"></div>
       </section>
 
-      <!-- 3. Campaign Generation Settings -->
+      <!-- 3. Campaign Generation Settings (Mặc định: Mỗi sản phẩm 1 chiến dịch riêng) -->
       <section class="campaign-settings-box">
-        <div class="mode-selector-row">
-          <label class="mode-label active" id="label_mode_separate">
-            <input type="radio" name="campaign_mode" value="separate" checked id="radio_mode_separate">
-            <span>🚀 <b>Tách riêng mỗi sản phẩm 1 Chiến dịch</b> (Khuyên dùng - Tự tạo Chiến dịch & Ngân sách riêng, Ảnh không bị lẫn lộn)</span>
-          </label>
-          <label class="mode-label" id="label_mode_single">
-            <input type="radio" name="campaign_mode" value="single" id="radio_mode_single">
-            <span>📁 <b>Gộp chung vào 1 Chiến dịch có sẵn</b></span>
-          </label>
+        <div class="campaign-settings-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 15px;">🚀</span>
+            <span style="font-size: 13px; font-weight: 700; color: var(--text-primary);">Cấu hình Chiến dịch Google Ads</span>
+            <span style="font-size: 11px; background: #e8f0fe; color: #1a73e8; font-weight: 600; padding: 2px 8px; border-radius: 12px; border: 1px solid #d2e3fc;">Mặc định: Mỗi sản phẩm là 1 Chiến dịch riêng</span>
+          </div>
+          <span style="font-size: 11px; color: var(--text-muted);">Tự động tạo Ngân sách ngày & Nhóm quảng cáo riêng biệt cho từng SP</span>
         </div>
 
         <div class="campaign-bar">
-          <div class="form-group" id="grp_campaign_name" style="display: none;">
-            <label class="form-label">Tên chiến dịch Google Ads chung</label>
-            <input type="text" id="input_campaign_name" class="form-input" placeholder="Chiến dịch sản phẩm Web Derma | 21/10">
-          </div>
-
           <div class="form-group" id="grp_campaign_prefix">
             <label class="form-label">Tiền tố tên chiến dịch</label>
             <input type="text" id="input_campaign_prefix" class="form-input" value="Chiến dịch SP - " placeholder="Ví dụ: Chiến dịch SP - hoặc [KHD]">
