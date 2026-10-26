@@ -1517,6 +1517,41 @@ async function executeNotionCampaignsFlow() {
 
   updateTerminal(`🚀 Bắt đầu tạo ${selectedTasks.length} chiến dịch từ Notion Camp Google ADS...`);
 
+  // Lắng nghe tiến độ batch real-time từ Notion backend
+  if (window.electronAPI.removeProgressListener) window.electronAPI.removeProgressListener();
+  if (window.electronAPI.onProgress) {
+    window.electronAPI.onProgress((data) => {
+      const pct = data.percent || 0;
+      if (progressFill) progressFill.style.width = `${pct}%`;
+      if (progressPercent) progressPercent.innerText = `${pct}%`;
+      if (progressMainStatus) progressMainStatus.innerText = data.message || 'Đang xử lý...';
+      if (progressDetailStatus) progressDetailStatus.innerText = data.detail || data.productTitle || '';
+
+      const stepAi = document.getElementById('step_ai');
+      const stepImg = document.getElementById('step_img');
+      const stepCsv = document.getElementById('step_csv');
+      if (data.step?.startsWith('ai_')) {
+        if (stepAi) stepAi.className = 'progress-step-item active';
+        if (stepImg) stepImg.className = 'progress-step-item';
+        if (stepCsv) stepCsv.className = 'progress-step-item';
+      } else if (data.step?.startsWith('img_')) {
+        if (stepAi) stepAi.className = 'progress-step-item done';
+        if (stepImg) stepImg.className = 'progress-step-item active';
+        if (stepCsv) stepCsv.className = 'progress-step-item';
+      } else if (data.step?.startsWith('csv_')) {
+        if (stepAi) stepAi.className = 'progress-step-item done';
+        if (stepImg) stepImg.className = 'progress-step-item done';
+        if (stepCsv) stepCsv.className = 'progress-step-item active';
+      } else if (data.step === 'completed' || pct >= 100) {
+        if (stepAi) stepAi.className = 'progress-step-item done';
+        if (stepImg) stepImg.className = 'progress-step-item done';
+        if (stepCsv) stepCsv.className = 'progress-step-item done';
+      }
+
+      updateTerminal(`● ${data.message}`);
+    });
+  }
+
   try {
     const res = await window.electronAPI.runNotionCampaigns({
       tasks: selectedTasks,
@@ -1553,5 +1588,7 @@ async function executeNotionCampaignsFlow() {
   } catch (err) {
     showToast(`Lỗi: ${err.message}`, 'error');
     updateTerminal(`✗ Lỗi ngoại lệ: ${err.message}`);
+  } finally {
+    if (window.electronAPI.removeProgressListener) window.electronAPI.removeProgressListener();
   }
 }
