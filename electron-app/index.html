@@ -282,42 +282,45 @@
 
       <!-- 2. Main Notion Data Hub Card & Table (Chiếm trọn trung tâm ứng dụng) -->
       <section class="notion-main-card">
-        <!-- Control Toolbar & Inline Settings -->
+        <!-- Control Toolbar: Row 1 & Row 2 -->
         <div class="notion-table-toolbar">
-          <!-- Search Box -->
-          <div class="notion-search-box">
-            <input type="text" id="input_notion_search" placeholder="🔍 Tìm kiếm nhanh sản phẩm trong Notion..." class="form-input">
-          </div>
-
-          <!-- Selection Actions -->
-          <div class="notion-selection-actions">
-            <button class="btn-header" id="btn_select_all_pending" style="font-size: 11px; padding: 6px 12px;">✓ Chọn mục Chờ tạo</button>
-            <button class="btn-header" id="btn_select_all_notion" style="font-size: 11px; padding: 6px 12px;">✓ Chọn tất cả</button>
-            <button class="btn-header" id="btn_deselect_all_notion" style="font-size: 11px; padding: 6px 12px;">✕ Bỏ chọn</button>
-            <span class="selected-counter-badge" id="notion_selected_count">Đã chọn: 0 SP</span>
-          </div>
-
-          <!-- Compact Campaign Parameters -->
-          <div class="campaign-inline-config">
-            <div class="inline-field">
-              <label>Tiền tố:</label>
-              <input type="text" id="input_campaign_prefix" class="form-input" value="Chiến dịch SP - " style="width: 125px; height: 32px; font-size: 11px;">
+          <!-- Row 1: Search & Quick Selection -->
+          <div class="toolbar-row-top">
+            <div class="notion-search-box">
+              <input type="text" id="input_notion_search" placeholder="🔍 Tìm kiếm nhanh sản phẩm trong Notion..." class="form-input">
             </div>
-            <div class="inline-field">
-              <label>Ngân sách/ngày:</label>
-              <input type="number" id="input_daily_budget" class="form-input" value="100000" step="5000" style="width: 95px; height: 32px; font-size: 11px;">
-            </div>
-            <div class="inline-field">
-              <label>Max CPC:</label>
-              <input type="number" id="input_max_cpc" class="form-input" value="2000" step="100" style="width: 75px; height: 32px; font-size: 11px;">
+
+            <div class="notion-selection-actions">
+              <button class="btn-header" id="btn_select_all_pending" style="font-size: 11px; padding: 6px 12px;">✓ Chọn mục Chờ tạo</button>
+              <button class="btn-header" id="btn_select_all_notion" style="font-size: 11px; padding: 6px 12px;">✓ Chọn tất cả</button>
+              <button class="btn-header" id="btn_deselect_all_notion" style="font-size: 11px; padding: 6px 12px;">✕ Bỏ chọn</button>
+              <span class="selected-counter-badge" id="notion_selected_count">Đã chọn: 0 SP</span>
             </div>
           </div>
 
-          <!-- Action Button: Run Campaigns -->
-          <button class="btn-generate" id="btn_execute_notion_campaigns" style="padding: 0 20px; height: 38px; flex-shrink: 0;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            <span>CHẠY TẠO CHIẾN DỊCH & XUẤT CSV</span>
-          </button>
+          <!-- Row 2: Campaign Parameters & Primary Execute CTA Button -->
+          <div class="toolbar-row-bottom">
+            <div class="campaign-inline-config">
+              <div class="inline-field">
+                <label>Tiền tố:</label>
+                <input type="text" id="input_campaign_prefix" class="form-input" value="Chiến dịch SP - " style="width: 140px; height: 32px; font-size: 11px;">
+              </div>
+              <div class="inline-field">
+                <label>Ngân sách/ngày:</label>
+                <input type="number" id="input_daily_budget" class="form-input" value="100000" step="5000" style="width: 100px; height: 32px; font-size: 11px;">
+              </div>
+              <div class="inline-field">
+                <label>Max CPC:</label>
+                <input type="number" id="input_max_cpc" class="form-input" value="2000" step="100" style="width: 80px; height: 32px; font-size: 11px;">
+              </div>
+              <span class="inline-hint-tag">Mỗi sản phẩm = 1 Chiến dịch riêng & 1 file CSV riêng</span>
+            </div>
+
+            <button class="btn-generate" id="btn_execute_notion_campaigns" style="padding: 0 22px; height: 38px; flex-shrink: 0;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              <span>CHẠY TẠO CHIẾN DỊCH & XUẤT CSV</span>
+            </button>
+          </div>
         </div>
 
         <!-- Big Data Table -->

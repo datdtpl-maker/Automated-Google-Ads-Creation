@@ -90,8 +90,20 @@ function readConfig() {
                 config.gemini_api_key = DEFAULT_CONFIG.gemini_api_key;
                 needsResave = true;
             }
+            if (!config.wp_url || config.wp_url.trim() === '') {
+                config.wp_url = DEFAULT_CONFIG.wp_url;
+                needsResave = true;
+            }
+            if (!config.wp_user || config.wp_user.trim() === '') {
+                config.wp_user = DEFAULT_CONFIG.wp_user;
+                needsResave = true;
+            }
             if (!config.wp_app_password || config.wp_app_password.trim() === '') {
                 config.wp_app_password = DEFAULT_CONFIG.wp_app_password;
+                needsResave = true;
+            }
+            if (!config.campaign_prefix || config.campaign_prefix.trim() === '') {
+                config.campaign_prefix = DEFAULT_CONFIG.campaign_prefix;
                 needsResave = true;
             }
 
@@ -108,11 +120,11 @@ function readConfig() {
             }
 
             // Tự động sửa lỗi font tiếng Việt mojibake hoặc tên chiến dịch cũ trong config
-            if (isMojibake(config.default_campaign_name) || config.default_campaign_name === 'Chiến dịch sản phẩm Web Derma | 22/10') {
+            if (!config.default_campaign_name || isMojibake(config.default_campaign_name) || config.default_campaign_name === 'Chiến dịch sản phẩm Web Derma | 22/10') {
                 config.default_campaign_name = DEFAULT_CONFIG.default_campaign_name;
                 needsResave = true;
             }
-            if (isMojibake(config.root_images_dir) || config.root_images_dir.includes('OneDrive')) {
+            if (!config.root_images_dir || config.root_images_dir.trim() === '' || isMojibake(config.root_images_dir) || config.root_images_dir.includes('OneDrive')) {
                 config.root_images_dir = DEFAULT_CONFIG.root_images_dir;
                 needsResave = true;
             }
@@ -200,8 +212,8 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1420,
         height: 940,
-        minWidth: 1080,
-        minHeight: 720,
+        minWidth: 880,
+        minHeight: 600,
         title: 'Google Ads Campaign Auto-Generator Pro',
         icon: iconPath,
         backgroundColor: '#f8fafd',

@@ -1,6 +1,6 @@
 {
   "name": "google-ads-auto-generator",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Google Ads Campaign Auto-Generator Pro Desktop App",
   "main": "main.js",
   "scripts": {
