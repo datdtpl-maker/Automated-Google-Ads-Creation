@@ -1392,30 +1392,34 @@ function renderNotionTasks() {
     const budgetFormatted = task.daily_budget ? `${Number(task.daily_budget).toLocaleString('vi-VN')} đ` : '100.000 đ';
 
     tr.innerHTML = `
-      <td style="text-align: center;">
+      <td style="text-align: center; width: 44px;">
         <input type="checkbox" class="cb-notion-row" data-id="${task.page_id}" ${isChecked ? 'checked' : ''}>
       </td>
       <td>
-        <div style="font-weight: 600; color: var(--text-primary); max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: text;" title="${task.title}">
+        <div style="font-weight: 600; color: var(--text-primary); max-width: 440px; line-height: 1.4; word-break: break-word; user-select: text;" title="${task.title}">
           ${task.title}
         </div>
       </td>
-      <td><span style="font-size: 11px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px; color: var(--text-secondary);">${task.category || 'Chung'}</span></td>
+      <td style="white-space: nowrap;">
+        <span style="font-size: 11px; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; color: var(--text-secondary); white-space: nowrap;">${task.category || 'Chung'}</span>
+      </td>
       <td style="font-weight: 600; color: var(--amber-text); white-space: nowrap;">${task.price || '--'}</td>
       <td style="font-weight: 600; color: #166534; white-space: nowrap;">${budgetFormatted}</td>
-      <td>
+      <td style="white-space: nowrap;">
         <span class="notion-badge ${badgeClass}">● ${task.status}</span>
       </td>
-      <td>
-        <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); max-width: 180px; display: inline-block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${task.csv_file || 'Chưa có'}">
-          ${task.csv_file || '--'}
-        </span>
+      <td style="white-space: nowrap;">
+        ${task.csv_file ? `
+          <span style="font-family: var(--font-mono); font-size: 11px; color: #15803d; background: #dcfce7; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; display: inline-block; max-width: 380px; user-select: text;" title="${task.csv_file}">
+            ${task.csv_file}
+          </span>
+        ` : `<span style="font-size: 11px; color: var(--text-muted);">Chưa có</span>`}
       </td>
       <td style="font-size: 11px; color: var(--text-muted); white-space: nowrap;">${dateDisplay}</td>
-      <td style="white-space: nowrap;">
-        <div style="display: flex; gap: 6px;">
-          ${task.url ? `<button class="btn-input-action btn-open-url" data-url="${task.url}" title="Xem sản phẩm trên web derma" style="font-size: 11px; padding: 3px 8px;">Web ↗</button>` : ''}
-          <button class="btn-input-action btn-single-run" data-id="${task.page_id}" title="Tạo ngay cho sản phẩm này" style="font-size: 11px; padding: 3px 8px; background: #e0f2fe; color: #0284c7; border-color: #bae6fd;">Tạo 🚀</button>
+      <td style="white-space: nowrap; text-align: center;">
+        <div style="display: inline-flex; gap: 6px; align-items: center; justify-content: center;">
+          ${task.url ? `<button class="btn-input-action btn-open-url" data-url="${task.url}" title="Xem sản phẩm trên web derma" style="font-size: 11px; padding: 4px 8px;">Web ↗</button>` : ''}
+          <button class="btn-input-action btn-single-run" data-id="${task.page_id}" title="Tạo chiến dịch cho sản phẩm này" style="font-size: 11px; padding: 4px 10px; background: #e0f2fe; color: #0284c7; border-color: #bae6fd; font-weight: 600;">Tạo Camp</button>
         </div>
       </td>
     `;
