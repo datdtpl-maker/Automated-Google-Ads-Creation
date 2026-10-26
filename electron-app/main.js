@@ -1252,61 +1252,90 @@ async function updateNotionTaskProperties(pageId, status, csvFileName = null) {
 async function syncNotionProductsFromCache() {
     const cfg = readConfig();
     const dbId = cfg.notion_database_id || DEFAULT_CONFIG.notion_database_id;
-    let products = memoryProductsCache;
+    
+    // 1. Luôn tải danh sách sản phẩm mới nhất từ website WooCommerce khaihoanderma.com
+    let products = [];
+    try {
+        products = await syncAllProducts(true);
+    } catch (e) {
+        console.warn('Không fetch được live từ WooCommerce, dùng cache:', e.message);
+    }
+    if (!products || products.length === 0) {
+        products = memoryProductsCache;
+    }
     if (!products || products.length === 0) {
         products = loadProductsFromDisk();
     }
     if (!products || products.length === 0) {
-        return { success: false, error: 'Chưa có sản phẩm trong bộ nhớ cache local.' };
+        return { success: false, error: 'Không lấy được danh sách sản phẩm từ website WooCommerce.' };
     }
 
+    // 2. Lấy toàn bộ sản phẩm hiện có trên Notion để đối chiếu chống trùng lặp
     const existing = await fetchNotionTasksFromDatabase('all');
     const existingUrls = new Set((existing.tasks || []).map(t => (t.url || '').trim()).filter(Boolean));
     const existingTitles = new Set((existing.tasks || []).map(t => (t.title || '').trim().toLowerCase()).filter(Boolean));
 
     let createdCount = 0;
+    let skippedCount = 0;
+
     for (const p of products) {
         const pUrl = (p.permalink || '').trim();
         const pTitle = (p.name || '').trim().toLowerCase();
-        if (existingUrls.has(pUrl) || existingTitles.has(pTitle)) {
+        
+        // Tuyệt đối không lấy trùng, không ghi đè sản phẩm đã có hoặc đã lên camp
+        if ((pUrl && existingUrls.has(pUrl)) || (pTitle && existingTitles.has(pTitle))) {
+            skippedCount++;
             continue;
         }
 
         const firstCat = p.categories ? p.categories.split(',')[0].trim() : 'Chăm Sóc Da';
         const priceText = p.price || (p.regular_price ? `${Number(p.regular_price).toLocaleString('vi-VN')} đ` : '');
         
+        const props = {
+            'Tên Chiến Dịch / Sản Phẩm': {
+                title: [{ text: { content: p.name.slice(0, 100) } }]
+            },
+            'Trạng Thái': {
+                select: { name: 'Chưa xử lý' }
+            },
+            'Giá Bán': {
+                rich_text: [{ text: { content: priceText } }]
+            },
+            'Danh Mục': {
+                select: { name: firstCat }
+            },
+            'Ngân Sách Ngày': {
+                number: 100000
+            },
+            'Ngày Cập Nhật': {
+                date: { start: new Date().toISOString() }
+            }
+        };
+
+        if (p.permalink) {
+            props['URL Web Derma'] = { url: p.permalink };
+        }
+
         const body = {
             parent: { database_id: dbId },
-            properties: {
-                'Tên Chiến Dịch / Sản Phẩm': {
-                    title: [{ text: { content: p.name.slice(0, 100) } }]
-                },
-                'Trạng Thái': {
-                    select: { name: 'Chưa xử lý' }
-                },
-                'URL Web Derma': p.permalink ? { url: p.permalink } : undefined,
-                'Giá Bán': {
-                    rich_text: [{ text: { content: priceText } }]
-                },
-                'Danh Mục': {
-                    select: { name: firstCat }
-                },
-                'Ngân Sách Ngày': {
-                    number: 100000
-                }
-            }
+            properties: props
         };
 
         const res = await callNotionApi('/v1/pages', 'POST', body);
         if (res.success) {
             createdCount++;
-            existingUrls.add(pUrl);
-            existingTitles.add(pTitle);
+            if (pUrl) existingUrls.add(pUrl);
+            if (pTitle) existingTitles.add(pTitle);
         }
         await new Promise(r => setTimeout(r, 350));
     }
 
-    return { success: true, added: createdCount, total: existing.tasks.length + createdCount };
+    return { 
+        success: true, 
+        added: createdCount, 
+        skipped: skippedCount, 
+        total: (existing.tasks || []).length + createdCount 
+    };
 }
 
 // IPC Notion Handlers

@@ -37,27 +37,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventListeners();
   await loadAndApplyConfig();
   await checkSystemHealth();
-  updateSelectedProductsUI();
-
-  // Khởi động nhanh bộ nhớ cache sản phẩm local
-  try {
-    const res = await window.electronAPI.searchProducts('');
-    if (res && res.total_cached) {
-      const lbl = document.getElementById('label_sync_status');
-      if (lbl) lbl.innerText = `Đồng bộ SP (${res.total_cached})`;
-    }
-  } catch (e) {}
-
-  // Quét ngầm số lượng nhiệm vụ Notion ban đầu để cập nhật badge
-  setTimeout(async () => {
-    try {
-      const resN = await window.electronAPI.fetchNotionTasks('all');
-      if (resN.success && Array.isArray(resN.tasks)) {
-        notionTasksList = resN.tasks;
-        updateNotionFilterCounts();
-      }
-    } catch (e) {}
-  }, 800);
+  
+  // Nạp toàn bộ bảng dữ liệu từ Notion Hub ngay khi khởi động
+  await loadNotionTasks();
 });
 
 // Kiểm tra và khử mojibake
@@ -101,8 +83,10 @@ async function loadAndApplyConfig() {
     }
 
     // Điền giá trị mặc định trên thanh chiến dịch chính
-    document.getElementById('input_campaign_name').value = cleanCampName;
-    document.getElementById('input_max_cpc').value = cfg.max_cpc || 2000;
+    const inCampName = document.getElementById('input_campaign_name');
+    if (inCampName) inCampName.value = cleanCampName;
+    const inMaxCpc = document.getElementById('input_max_cpc');
+    if (inMaxCpc) inMaxCpc.value = cfg.max_cpc || 2000;
   } catch (err) {
     console.error('Lỗi nạp config:', err);
   }
@@ -241,6 +225,7 @@ function clearAllSelections() {
 
 function updateSelectedProductsUI() {
   const cardSingle = document.getElementById('card_selected_product');
+  if (!cardSingle) return;
   const cardBatch = document.getElementById('card_batch_products');
   const btnGen = document.getElementById('btn_generate_campaign');
   const batchCountEl = document.getElementById('batch_count');
@@ -447,20 +432,12 @@ function setupEventListeners() {
     }
   });
 
-  // Sự kiện mở & thao tác Notion Modal
-  const btnOpenNotionHub = document.getElementById('btn_open_notion_hub');
-  if (btnOpenNotionHub) btnOpenNotionHub.addEventListener('click', openNotionModal);
-
+  // Thao tác Notion Hub & Đồng bộ sản phẩm từ Web
   const btnScanNotionTasks = document.getElementById('btn_scan_notion_tasks');
-  if (btnScanNotionTasks) btnScanNotionTasks.addEventListener('click', openNotionModal);
-
-  const btnCloseNotionModal = document.getElementById('btn_close_notion_modal');
-  if (btnCloseNotionModal) btnCloseNotionModal.addEventListener('click', closeNotionModal);
-
-  const notionModalOverlay = document.getElementById('notion_modal_overlay');
-  if (notionModalOverlay) {
-    notionModalOverlay.addEventListener('click', (e) => {
-      if (e.target === notionModalOverlay) closeNotionModal();
+  if (btnScanNotionTasks) {
+    btnScanNotionTasks.addEventListener('click', async () => {
+      showToast('Đang quét và làm mới danh sách từ Notion...', 'success');
+      await loadNotionTasks();
     });
   }
 
@@ -472,11 +449,37 @@ function setupEventListeners() {
     });
   }
 
-  const btnOpenNotionLink = document.getElementById('btn_open_notion_link');
-  if (btnOpenNotionLink) {
-    btnOpenNotionLink.addEventListener('click', () => {
-      window.electronAPI.openExternalUrl('https://app.notion.com/p/40270655a9aa81a093d6dae93c86f895');
-    });
+  // Hàm xử lý đồng bộ sản phẩm mới từ Web Derma qua Notion
+  async function handleSyncWebToNotion(btnElement) {
+    if (btnElement) btnElement.disabled = true;
+    showToast('Đang kết nối web khaihoanderma.com và đối chiếu dữ liệu Notion...', 'success');
+    updateTerminal('⏳ Đang quét sản phẩm mới nhất từ website khaihoanderma.com và đối chiếu với Notion database...');
+
+    try {
+      const res = await window.electronAPI.syncNotionProducts();
+      if (res.success) {
+        showToast(`Đồng bộ thành công! Đã thêm mới ${res.added} sản phẩm lên Notion.`, 'success');
+        updateTerminal(`✅ Đã đồng bộ xong! Thêm mới ${res.added} sản phẩm lên Notion. Đã bỏ qua ${res.skipped || 0} sản phẩm đã có (giữ nguyên không ghi đè). Tổng hiện có: ${res.total} SP.`);
+        await loadNotionTasks();
+      } else {
+        showToast(res.error || 'Lỗi khi đồng bộ sản phẩm', 'error');
+        updateTerminal(`❌ Lỗi đồng bộ: ${res.error}`);
+      }
+    } catch (e) {
+      showToast(`Lỗi: ${e.message}`, 'error');
+      updateTerminal(`❌ Lỗi ngoại lệ: ${e.message}`);
+    } finally {
+      if (btnElement) btnElement.disabled = false;
+    }
+  }
+
+  const btnSyncWebToNotion = document.getElementById('btn_sync_web_to_notion');
+  if (btnSyncWebToNotion) {
+    btnSyncWebToNotion.addEventListener('click', () => handleSyncWebToNotion(btnSyncWebToNotion));
+  }
+  const btnSyncMoreNotion = document.getElementById('btn_sync_more_notion');
+  if (btnSyncMoreNotion) {
+    btnSyncMoreNotion.addEventListener('click', () => handleSyncWebToNotion(btnSyncMoreNotion));
   }
 
   const btnOpenNotionWebBanner = document.getElementById('btn_open_notion_web_banner');
@@ -486,20 +489,20 @@ function setupEventListeners() {
     });
   }
 
-  // Filter tabs trong Notion Modal
-  ['Chờ tạo', 'Đang chạy Google Ads', 'Chưa xử lý', 'all'].forEach(st => {
-    const btnTab = document.querySelector(`.notion-tab-btn[data-status="${st}"]`);
-    if (btnTab) {
-      btnTab.addEventListener('click', () => {
-        document.querySelectorAll('.notion-tab-btn').forEach(b => b.classList.remove('active'));
-        btnTab.classList.add('active');
+  // Filter tabs / KPI Metric Cards trong Notion Hub
+  ['Chờ tạo', 'Đang chạy Google Ads', 'Chưa xử lý', 'Từ chối', 'all'].forEach(st => {
+    const cards = document.querySelectorAll(`[data-status="${st}"]`);
+    cards.forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('[data-status]').forEach(b => b.classList.remove('active'));
+        card.classList.add('active');
         currentNotionFilter = st;
         renderNotionTasks();
       });
-    }
+    });
   });
 
-  // Search input trong Notion Modal
+  // Search input trong Notion Hub
   const inputNotionSearch = document.getElementById('input_notion_search');
   if (inputNotionSearch) {
     inputNotionSearch.addEventListener('input', (e) => {
@@ -519,6 +522,16 @@ function setupEventListeners() {
       });
       renderNotionTasks();
       showToast(`Đã chọn ${selectedNotionTasksSet.size} sản phẩm đang Chờ tạo!`, 'success');
+    });
+  }
+
+  // Select all trong toàn bộ Notion
+  const btnSelectAllNotion = document.getElementById('btn_select_all_notion');
+  if (btnSelectAllNotion) {
+    btnSelectAllNotion.addEventListener('click', () => {
+      notionTasksList.forEach(t => selectedNotionTasksSet.add(t.page_id));
+      renderNotionTasks();
+      showToast(`Đã chọn toàn bộ ${selectedNotionTasksSet.size} sản phẩm!`, 'success');
     });
   }
 
@@ -550,25 +563,17 @@ function setupEventListeners() {
     });
   }
 
-  // Đồng bộ thêm sản phẩm từ Web lên Notion
-  const btnSyncMoreNotion = document.getElementById('btn_sync_more_notion');
-  if (btnSyncMoreNotion) {
-    btnSyncMoreNotion.addEventListener('click', async () => {
-      showToast('Đang kiểm tra và đồng bộ sản phẩm mới lên Notion...', 'success');
-      btnSyncMoreNotion.disabled = true;
-      try {
-        const res = await window.electronAPI.syncNotionProducts();
-        if (res.success) {
-          showToast(`Đồng bộ hoàn tất! Đã thêm mới ${res.added} sản phẩm lên Notion.`, 'success');
-          await loadNotionTasks();
-        } else {
-          showToast(res.error || 'Lỗi khi đồng bộ sản phẩm lên Notion', 'error');
-        }
-      } catch (e) {
-        showToast(`Lỗi: ${e.message}`, 'error');
-      } finally {
-        btnSyncMoreNotion.disabled = false;
-      }
+  // Nút mở thư mục ở footer dưới bảng
+  const btnOpenCsvBottom = document.getElementById('btn_open_csv_folder_bottom');
+  if (btnOpenCsvBottom) {
+    btnOpenCsvBottom.addEventListener('click', () => {
+      window.electronAPI.openFolder('D:\\Project Anti\\Auto-Google-Ads\\output');
+    });
+  }
+  const btnOpenImgBottom = document.getElementById('btn_open_img_folder_bottom');
+  if (btnOpenImgBottom) {
+    btnOpenImgBottom.addEventListener('click', () => {
+      window.electronAPI.openFolder(currentConfig?.root_images_dir || 'D:\\Project Anti\\Auto-Google-Ads\\output\\images');
     });
   }
 
@@ -1576,14 +1581,9 @@ async function executeNotionCampaignsFlow() {
       lastGeneratedResult = res;
       renderResults(res);
 
-      // Tải lại dữ liệu Notion ngầm để cập nhật trạng thái mới
-      setTimeout(() => {
-        window.electronAPI.fetchNotionTasks('all').then(r => {
-          if (r.success) {
-            notionTasksList = r.tasks;
-            updateNotionFilterCounts();
-          }
-        });
+      // Tải lại dữ liệu Notion để cập nhật trạng thái mới trên bảng
+      setTimeout(async () => {
+        await loadNotionTasks();
       }, 1000);
     } else {
       showToast(res.error || 'Lỗi khi tạo chiến dịch từ Notion', 'error');
