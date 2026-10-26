@@ -633,7 +633,7 @@ function escapeCsv(val) {
 }
 
 // Hàm xử lý từng sản phẩm đơn lẻ (gọi AI, tải ảnh, tạo dòng CSV)
-async function processSingleProduct(product, { apiKey, model, campaignMode = 'separate', campaignPrefix = 'Chiến dịch SP - ', effectiveCampaignName, dailyBudget = 50000, effectiveMaxCpc, rootImgDir, todayStr, onStepProgress }) {
+async function processSingleProduct(product, { apiKey, model, campaignMode = 'separate', campaignPrefix = 'Chiến dịch SP - ', dailyBudget = 50000, effectiveMaxCpc, rootImgDir, todayStr, onStepProgress }) {
     const cleanProdName = sanitizeFolderName(product.title || 'san_pham');
     const targetProductImgDir = path.join(rootImgDir, cleanProdName);
 
@@ -981,10 +981,9 @@ async function executeBatchCampaign(sender, params) {
         const res = await processSingleProduct(prod, {
             apiKey,
             model,
-            campaignMode,
+            campaignMode: 'separate',
             campaignPrefix: effectivePrefix,
-            effectiveCampaignName,
-            dailyBudget: effectiveDailyBudget,
+            dailyBudget: prod.task_budget || effectiveDailyBudget,
             effectiveMaxCpc,
             rootImgDir,
             todayStr,
@@ -994,6 +993,22 @@ async function executeBatchCampaign(sender, params) {
         });
 
         if (res.success) {
+            // Xuất file CSV riêng biệt cho từng sản phẩm
+            const outputDir = getDefaultOutputDir();
+            const cleanTag = sanitizeFolderName(res.shortName);
+            const singleCsvFileName = `google_ads_all_in_one_${cleanTag}.csv`;
+            const singleCsvFilePath = path.join(outputDir, singleCsvFileName);
+
+            const singleCsvContent = [CSV_HEADERS.map(escapeCsv).join(',')];
+            for (const r of res.rows) {
+                singleCsvContent.push(r.map(escapeCsv).join(','));
+            }
+            fs.writeFileSync(singleCsvFilePath, '\uFEFF' + singleCsvContent.join('\r\n'), 'utf8');
+
+            res.csv_file_name = singleCsvFileName;
+            res.csv_file_path = singleCsvFilePath;
+            res.notion_page_id = prod.notion_page_id;
+
             allRows.push(...res.rows);
             productsResults.push(res);
         } else {
@@ -1005,6 +1020,8 @@ async function executeBatchCampaign(sender, params) {
         return { success: false, error: 'Không thể tạo dữ liệu quảng cáo cho các sản phẩm đã chọn.' };
     }
 
+    const outputDir = getDefaultOutputDir();
+
     if (sender && typeof sender.send === 'function') {
         sender.send('batch-progress', {
             current: N,
@@ -1012,23 +1029,29 @@ async function executeBatchCampaign(sender, params) {
             percent: 96,
             step: 'csv_export',
             productTitle: productsResults[0]?.shortName || '',
-            message: `Đang xuất file CSV Master All-in-One...`,
-            detail: `Tổng hợp ${allRows.length} dòng dữ liệu`
+            message: `Đang hoàn tất xuất các file CSV riêng...`,
+            detail: `Đã tạo riêng ${productsResults.length} file CSV cho ${productsResults.length} sản phẩm`
         });
     }
 
-    // Xuất duy nhất 1 file CSV All-in-One Master duy nhất chứa toàn bộ dữ liệu
-    const outputDir = getDefaultOutputDir();
-    const cleanTag = productsResults.length === 1 ? sanitizeFolderName(productsResults[0].shortName) : `batch_${productsResults.length}_san_pham`;
-    const csvFileName = `google_ads_all_in_one_${cleanTag}.csv`;
-    const csvFilePath = path.join(outputDir, csvFileName);
-
-    const csvContentRows = [CSV_HEADERS.map(escapeCsv).join(',')];
-    for (const r of allRows) {
-        csvContentRows.push(r.map(escapeCsv).join(','));
+    // Nếu tạo từ 2 sản phẩm trở lên, xuất thêm 1 file Master tổng hợp tiện lợi
+    let masterCsvFileName = null;
+    let masterCsvFilePath = null;
+    if (productsResults.length > 1) {
+        masterCsvFileName = `google_ads_all_in_one_master_${productsResults.length}_san_pham.csv`;
+        masterCsvFilePath = path.join(outputDir, masterCsvFileName);
+        const masterContent = [CSV_HEADERS.map(escapeCsv).join(',')];
+        for (const r of allRows) {
+            masterContent.push(r.map(escapeCsv).join(','));
+        }
+        fs.writeFileSync(masterCsvFilePath, '\uFEFF' + masterContent.join('\r\n'), 'utf8');
     }
 
-    fs.writeFileSync(csvFilePath, '\uFEFF' + csvContentRows.join('\r\n'), 'utf8');
+    const individualCsvFiles = productsResults.map(p => ({
+        product_name: p.shortName,
+        file_name: p.csv_file_name,
+        file_path: p.csv_file_path
+    }));
 
     const defaultSitelinks = [
         {
@@ -1057,6 +1080,9 @@ async function executeBatchCampaign(sender, params) {
         }
     ];
 
+    const displayCsvFileName = productsResults.length === 1 ? productsResults[0].csv_file_name : (masterCsvFileName || productsResults[0].csv_file_name);
+    const displayCsvFilePath = productsResults.length === 1 ? productsResults[0].csv_file_path : (masterCsvFilePath || productsResults[0].csv_file_path);
+
     if (sender && typeof sender.send === 'function') {
         sender.send('batch-progress', {
             current: N,
@@ -1064,19 +1090,22 @@ async function executeBatchCampaign(sender, params) {
             percent: 100,
             step: 'completed',
             productTitle: productsResults[0]?.shortName || '',
-            message: `✓ Hoàn tất 100%! Đã tạo thành công dữ liệu và xuất file CSV Master duy nhất.`,
-            detail: `File CSV: ${csvFileName}`
+            message: `✓ Hoàn tất 100%! Đã xuất riêng ${productsResults.length} file CSV cho ${productsResults.length} sản phẩm.`,
+            detail: `Thư mục lưu: ${outputDir}`
         });
     }
 
     return {
         success: true,
-        campaign_mode: campaignMode,
+        campaign_mode: 'separate',
         is_batch: productsResults.length > 1,
         total_products: products.length,
         successful_products: productsResults.length,
-        csv_file_path: csvFilePath,
-        csv_file_name: csvFileName,
+        csv_file_path: displayCsvFilePath,
+        csv_file_name: displayCsvFileName,
+        master_csv_path: masterCsvFilePath,
+        master_csv_name: masterCsvFileName,
+        individual_csv_files: individualCsvFiles,
         sitelinks: defaultSitelinks,
         output_dir: outputDir,
         products_results: productsResults,
@@ -1375,12 +1404,12 @@ ipcMain.handle('run-notion-campaigns', async (event, params) => {
     });
 
     if (batchRes.success) {
-        for (const p of productsToProcess) {
-            if (p.notion_page_id) {
+        for (const pr of (batchRes.products_results || [])) {
+            if (pr.notion_page_id) {
                 try {
-                    await updateNotionTaskProperties(p.notion_page_id, 'Đang chạy Google Ads', batchRes.csv_file_name);
+                    await updateNotionTaskProperties(pr.notion_page_id, 'Đang chạy Google Ads', pr.csv_file_name);
                 } catch (e) {
-                    console.warn(`Lỗi update Notion row ${p.notion_page_id}:`, e.message);
+                    console.warn(`Lỗi update Notion row ${pr.notion_page_id}:`, e.message);
                 }
             }
         }

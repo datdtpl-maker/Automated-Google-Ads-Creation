@@ -808,7 +808,9 @@ function setupEventListeners() {
 
   // Nút hiển thị file CSV trong Windows Explorer
   document.getElementById('btn_show_csv_in_folder').addEventListener('click', async () => {
-    if (lastGeneratedResult && lastGeneratedResult.csv_file_path) {
+    if (lastGeneratedResult && lastGeneratedResult.output_dir) {
+      await window.electronAPI.openFolder(lastGeneratedResult.output_dir);
+    } else if (lastGeneratedResult && lastGeneratedResult.csv_file_path) {
       await window.electronAPI.showItemInFolder(lastGeneratedResult.csv_file_path);
     }
   });
@@ -1144,7 +1146,53 @@ function renderResults(data) {
   });
 
   // 6. CSV Tab
-  document.getElementById('label_csv_file_path').innerText = data.csv_file_path || '--';
+  const labelCsvPath = document.getElementById('label_csv_file_path');
+  const containerIndiv = document.getElementById('container_individual_csv_files');
+  const listIndiv = document.getElementById('list_individual_csv_files');
+  const countIndiv = document.getElementById('count_individual_csv_files');
+
+  if (labelCsvPath) {
+    if (data.individual_csv_files && data.individual_csv_files.length > 1) {
+      labelCsvPath.innerHTML = `<span>★ Đã tạo <b>${data.individual_csv_files.length} file CSV riêng biệt</b> (và 1 file Master: <i>${data.master_csv_name || ''}</i>)</span>`;
+    } else {
+      labelCsvPath.innerText = data.csv_file_path || '--';
+    }
+  }
+
+  if (containerIndiv && listIndiv) {
+    if (data.individual_csv_files && data.individual_csv_files.length > 1) {
+      containerIndiv.style.display = 'flex';
+      if (countIndiv) countIndiv.innerText = `${data.individual_csv_files.length} file CSV riêng biệt`;
+      listIndiv.innerHTML = '';
+      data.individual_csv_files.forEach((file, idx) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 7px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 12px;';
+        row.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 68%;">
+            <span style="font-weight: 700; color: #475569;">${idx + 1}.</span>
+            <span style="font-weight: 600; color: #1e293b;" title="${file.product_name}">${file.product_name}</span>
+            <span style="font-family: var(--font-mono); color: #059669; font-size: 11px;">(${file.file_name})</span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn-input-action btn-copy-indiv-path" title="Sao chép đường dẫn file này" style="font-size: 11px; padding: 3px 8px;">📋 Chép file</button>
+            <button class="btn-input-action btn-show-indiv-file" title="Mở file trong Explorer" style="font-size: 11px; padding: 3px 8px;">↗ Mở</button>
+          </div>
+        `;
+        row.querySelector('.btn-copy-indiv-path').addEventListener('click', (e) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(file.file_path);
+          showToast(`Đã chép: ${file.file_name}`, 'success');
+        });
+        row.querySelector('.btn-show-indiv-file').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await window.electronAPI.showItemInFolder(file.file_path);
+        });
+        listIndiv.appendChild(row);
+      });
+    } else {
+      containerIndiv.style.display = 'none';
+    }
+  }
 
   // Chuyển về Tab Preview xem trước mẫu quảng cáo đầu tiên khi hoàn tất
   switchResultTab('tab_preview');
@@ -1481,10 +1529,10 @@ async function executeNotionCampaignsFlow() {
       progressFill.style.width = '100%';
       progressPercent.innerText = '100%';
       progressMainStatus.innerText = '✓ Đã tạo xong toàn bộ chiến dịch và cập nhật Notion!';
-      progressDetailStatus.innerText = `File CSV Master: ${res.csv_file_name}`;
+      progressDetailStatus.innerText = `Đã xuất ${res.successful_products} file CSV riêng biệt cho từng sản phẩm!`;
 
-      showToast(`Xuất CSV thành công! Đã tự động chuyển ${selectedTasks.length} sản phẩm sang "Đang chạy Google Ads" trên Notion!`, 'success');
-      updateTerminal(`✓ Hoàn tất! File CSV Master: "${res.csv_file_name}". Trạng thái Notion đã cập nhật: "Đang chạy Google Ads".`);
+      showToast(`Xuất thành công ${res.successful_products} file CSV riêng biệt & cập nhật Notion!`, 'success');
+      updateTerminal(`✓ Hoàn tất! Đã xuất ${res.successful_products} file CSV riêng (mỗi SP 1 chiến dịch). Notion đã cập nhật "Đang chạy Google Ads" kèm tên file tương ứng.`);
 
       lastGeneratedResult = res;
       renderResults(res);

@@ -482,21 +482,30 @@
 
         <!-- Tab 6: CSV Export -->
         <div class="tab-pane" id="tab_csv">
-          <div style="background: var(--bg-subtle); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; gap: 16px; max-width: 760px;">
+          <div style="background: var(--bg-subtle); border: 1px solid var(--border-main); border-radius: var(--radius-md); padding: 22px; display: flex; flex-direction: column; gap: 16px; max-width: 820px;">
             <div>
               <div style="display: flex; align-items: center; justify-content: space-between;">
                 <h4 style="font-size: 15px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-                  File CSV All-in-One Master Chuẩn Google Ads
+                  Xuất File CSV Chiến Dịch Google Ads
                 </h4>
-                <span style="font-size: 11px; background: #e6f4ea; color: #137333; font-weight: 600; padding: 3px 10px; border-radius: 12px;">Tối đa hóa chuyển đổi • Location: Vietnam</span>
+                <span style="font-size: 11px; background: #e6f4ea; color: #137333; font-weight: 600; padding: 3px 10px; border-radius: 12px;">Mỗi SP = 1 Chiến Dịch & 1 File CSV Riêng</span>
               </div>
-              <p style="font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5;">
-                Duy nhất 1 file All-in-One chứa toàn bộ Chiến dịch (Ngân sách 100k/ngày, Vị trí Việt Nam, EU political ads: No), Nhóm quảng cáo, Mẫu quảng cáo RSA (15 tiêu đề, 4 mô tả) và Danh sách Từ khóa sạch. Sẵn sàng tải lên trực tiếp vào Google Ads.
+              <p style="font-size: 12px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5;" id="desc_csv_export">
+                Mỗi sản phẩm được xuất thành 1 file CSV riêng biệt độc lập (chứa đủ Cấp Chiến dịch riêng, Ngân sách ngày 100k, Nhóm quảng cáo, 15 Tiêu đề, 4 Mô tả, Từ khóa).
               </p>
             </div>
 
-            <div style="font-family: var(--font-mono); font-size: 13px; line-height: 1.6; min-height: 48px; background: #ffffff; padding: 12px 16px; border-radius: 6px; border: 1px solid var(--border-strong); color: var(--green-text); font-weight: 600; word-break: break-all; display: flex; align-items: center;" id="label_csv_file_path">
+            <div style="font-family: var(--font-mono); font-size: 13px; line-height: 1.6; min-height: 44px; background: #ffffff; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-strong); color: var(--green-text); font-weight: 600; word-break: break-all; display: flex; align-items: center;" id="label_csv_file_path">
               --
+            </div>
+
+            <!-- Khung danh sách các file CSV riêng khi chọn nhiều sản phẩm -->
+            <div id="container_individual_csv_files" style="display: none; flex-direction: column; gap: 8px;">
+              <div style="display: flex; align-items: center; justify-content: space-between;">
+                <span style="font-size: 12px; font-weight: 700; color: var(--text-primary);">📁 Danh sách từng file CSV riêng cho từng sản phẩm:</span>
+                <span style="font-size: 11px; color: var(--google-blue); font-weight: 600;" id="count_individual_csv_files">0 file</span>
+              </div>
+              <div id="list_individual_csv_files" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; background: #ffffff; padding: 10px; border: 1px solid var(--border-main); border-radius: 6px;"></div>
             </div>
 
             <div style="display: flex; flex-wrap: wrap; gap: 10px;">
@@ -506,8 +515,8 @@
               <button class="btn-header" id="btn_copy_csv_folder_path">
                 📂 Sao Chép Thư Mục CSV
               </button>
-              <button class="btn-header" id="btn_show_csv_in_folder">
-                ↗ Mở File Trong Explorer
+              <button class="btn-header active" id="btn_show_csv_in_folder">
+                ↗ Mở Thư Mục CSV Trong Explorer
               </button>
             </div>
           </div>
