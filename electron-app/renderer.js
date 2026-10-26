@@ -1212,7 +1212,7 @@ function renderResults(data) {
 
 let notionTasksList = [];
 let selectedNotionTasksSet = new Set();
-let currentNotionFilter = 'Chờ tạo';
+let currentNotionFilter = 'all';
 let notionSearchKeyword = '';
 
 async function openNotionModal() {
@@ -1246,6 +1246,15 @@ async function loadNotionTasks() {
     if (res.success && Array.isArray(res.tasks)) {
       notionTasksList = res.tasks;
       updateNotionFilterCounts();
+
+      // Cập nhật trạng thái active cho tab bộ lọc
+      document.querySelectorAll('[data-status]').forEach(b => {
+        if (b.getAttribute('data-status') === currentNotionFilter) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
 
       // Nếu đang ở tab Chờ tạo, tự động tích chọn các mục chờ tạo
       if (currentNotionFilter === 'Chờ tạo') {
@@ -1346,16 +1355,31 @@ function renderNotionTasks() {
               Toàn bộ ${notionTasksList.length} sản phẩm đang ở trạng thái <b>"Chưa xử lý"</b>.<br>
               Khi cần lên camp sản phẩm nào, Admin chỉ cần mở Notion chuyển sản phẩm đó sang <b>"Chờ tạo"</b> rồi bấm quét lại, hoặc chuyển sang tab <b>"Chưa xử lý"</b> bên trên để chọn trực tiếp ngay tại đây.
             </div>
-            <button type="button" class="btn-hub-scan" id="btn_switch_unprocessed_tab" style="margin: 0 auto; font-size: 12px; padding: 8px 18px;">
-              👉 Xem danh sách "Chưa xử lý" (${unprocessedCount})
-            </button>
+            <div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;">
+              <button type="button" class="btn-hub-scan" id="btn_switch_all_tab" style="font-size: 12px; padding: 7px 16px;">
+                📋 Xem Tất Cả Sản Phẩm (${notionTasksList.length})
+              </button>
+              <button type="button" class="btn-hub-link" id="btn_switch_unprocessed_tab" style="font-size: 12px; padding: 7px 16px;">
+                Xem Chưa Xử Lý (${unprocessedCount})
+              </button>
+            </div>
           </td>
         </tr>
       `;
+      const btnSwitchAll = document.getElementById('btn_switch_all_tab');
+      if (btnSwitchAll) {
+        btnSwitchAll.addEventListener('click', () => {
+          document.querySelectorAll('[data-status]').forEach(b => b.classList.remove('active'));
+          const allTab = document.getElementById('tab_notion_all');
+          if (allTab) allTab.classList.add('active');
+          currentNotionFilter = 'all';
+          renderNotionTasks();
+        });
+      }
       const btnSwitch = document.getElementById('btn_switch_unprocessed_tab');
       if (btnSwitch) {
         btnSwitch.addEventListener('click', () => {
-          document.querySelectorAll('.notion-tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('[data-status]').forEach(b => b.classList.remove('active'));
           const unTab = document.getElementById('tab_notion_unprocessed');
           if (unTab) unTab.classList.add('active');
           currentNotionFilter = 'Chưa xử lý';

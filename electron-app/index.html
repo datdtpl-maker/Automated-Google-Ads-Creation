@@ -221,26 +221,23 @@
         <div class="hub-hero-header">
           <div class="hub-hero-title-box">
             <div class="hub-hero-icon">🎯</div>
-            <div>
+            <div class="hub-hero-text">
               <div class="hub-hero-title-row">
                 <h2 class="hub-hero-title">Camp Google ADS (Notion Hub)</h2>
                 <span class="hub-source-tag">03 - Ads & Camp Hub</span>
-                <span class="hub-rule-tag">Mỗi sản phẩm = 1 Chiến dịch riêng</span>
+                <span class="hub-rule-tag">Mỗi SP = 1 Chiến dịch riêng & CSV riêng</span>
               </div>
-              <p class="hub-hero-subtext">
-                Trung tâm quản lý và tạo chiến dịch Google Ads tự động từ Notion. Nhấn <b>"Đồng bộ SP mới từ Web qua Notion"</b> để đẩy sản phẩm mới nhất từ website lên Notion (chống trùng lặp, không ghi đè sản phẩm đã có).
-              </p>
             </div>
           </div>
 
           <div class="hub-hero-actions">
             <button type="button" class="btn-hub-sync" id="btn_sync_web_to_notion" title="Tải sản phẩm mới từ website khaihoanderma.com đẩy lên Notion (chống trùng, không ghi đè)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               <span>Đồng Bộ SP Mới Từ Web Qua Notion</span>
             </button>
 
-            <button type="button" class="btn-hub-scan" id="btn_scan_notion_tasks" title="Quét và làm mới danh sách từ Notion">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            <button type="button" class="btn-hub-scan" id="btn_scan_notion_tasks" title="Quét toàn bộ trạng thái và làm mới danh sách từ Notion">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
               <span>Quét / Tải Lại Notion</span>
             </button>
 
@@ -250,33 +247,28 @@
           </div>
         </div>
 
-        <!-- 5 KPI Metric Tabs -->
-        <div class="hub-kpi-grid">
-          <div class="hub-kpi-card active" data-status="Chờ tạo" id="tab_notion_pending">
-            <div class="kpi-label">⚡ Chờ Tạo</div>
-            <div class="kpi-value text-amber" id="count_pending">0</div>
-            <div class="kpi-desc">Sản phẩm sẵn sàng xuất Ads</div>
-          </div>
-          <div class="hub-kpi-card" data-status="Đang chạy Google Ads" id="tab_notion_running">
-            <div class="kpi-label">Đang Chạy Ads</div>
-            <div class="kpi-value text-purple" id="count_running">0</div>
-            <div class="kpi-desc">Đã có CSV & đang chạy</div>
-          </div>
-          <div class="hub-kpi-card" data-status="Chưa xử lý" id="tab_notion_unprocessed">
-            <div class="kpi-label">Chưa Xử Lý</div>
-            <div class="kpi-value text-blue" id="count_unprocessed">0</div>
-            <div class="kpi-desc">Chờ duyệt lên chiến dịch</div>
-          </div>
-          <div class="hub-kpi-card" data-status="Từ chối" id="tab_notion_rejected">
-            <div class="kpi-label">Từ Chối</div>
-            <div class="kpi-value text-red" id="count_rejected">0</div>
-            <div class="kpi-desc">Tạm ngưng / Không chạy</div>
-          </div>
-          <div class="hub-kpi-card" data-status="all" id="tab_notion_all">
-            <div class="kpi-label">Tổng Sản Phẩm</div>
-            <div class="kpi-value text-primary" id="count_all">0</div>
-            <div class="kpi-desc">Toàn bộ kho Notion Hub</div>
-          </div>
+        <!-- 5 KPI Horizontal Filter Tabs (Mặc định chọn Tất cả trạng thái) -->
+        <div class="hub-kpi-tabs">
+          <button type="button" class="hub-tab-btn active" data-status="all" id="tab_notion_all">
+            <span class="tab-btn-title">📋 Tất Cả Trạng Thái</span>
+            <span class="tab-btn-badge badge-all" id="count_all">0</span>
+          </button>
+          <button type="button" class="hub-tab-btn" data-status="Chờ tạo" id="tab_notion_pending">
+            <span class="tab-btn-title">⚡ Chờ Tạo</span>
+            <span class="tab-btn-badge badge-amber" id="count_pending">0</span>
+          </button>
+          <button type="button" class="hub-tab-btn" data-status="Đang chạy Google Ads" id="tab_notion_running">
+            <span class="tab-btn-title">Đang Chạy Ads</span>
+            <span class="tab-btn-badge badge-purple" id="count_running">0</span>
+          </button>
+          <button type="button" class="hub-tab-btn" data-status="Chưa xử lý" id="tab_notion_unprocessed">
+            <span class="tab-btn-title">Chưa Xử Lý</span>
+            <span class="tab-btn-badge badge-blue" id="count_unprocessed">0</span>
+          </button>
+          <button type="button" class="hub-tab-btn" data-status="Từ chối" id="tab_notion_rejected">
+            <span class="tab-btn-title">Từ Chối</span>
+            <span class="tab-btn-badge badge-red" id="count_rejected">0</span>
+          </button>
         </div>
       </section>
 
@@ -287,13 +279,13 @@
           <!-- Row 1: Search & Quick Selection -->
           <div class="toolbar-row-top">
             <div class="notion-search-box">
-              <input type="text" id="input_notion_search" placeholder="🔍 Tìm kiếm nhanh sản phẩm trong Notion..." class="form-input">
+              <input type="text" id="input_notion_search" placeholder="🔍 Tìm nhanh theo tên sản phẩm, danh mục, file CSV..." class="form-input">
             </div>
 
             <div class="notion-selection-actions">
-              <button class="btn-header" id="btn_select_all_pending" style="font-size: 11px; padding: 6px 12px;">✓ Chọn mục Chờ tạo</button>
-              <button class="btn-header" id="btn_select_all_notion" style="font-size: 11px; padding: 6px 12px;">✓ Chọn tất cả</button>
-              <button class="btn-header" id="btn_deselect_all_notion" style="font-size: 11px; padding: 6px 12px;">✕ Bỏ chọn</button>
+              <button type="button" class="btn-header" id="btn_select_all_notion" style="font-size: 11px; padding: 6px 12px;">✓ Chọn tất cả</button>
+              <button type="button" class="btn-header" id="btn_select_all_pending" style="font-size: 11px; padding: 6px 12px;">⚡ Chọn mục Chờ tạo</button>
+              <button type="button" class="btn-header" id="btn_deselect_all_notion" style="font-size: 11px; padding: 6px 12px;">✕ Bỏ chọn</button>
               <span class="selected-counter-badge" id="notion_selected_count">Đã chọn: 0 SP</span>
             </div>
           </div>
@@ -303,20 +295,20 @@
             <div class="campaign-inline-config">
               <div class="inline-field">
                 <label>Tiền tố:</label>
-                <input type="text" id="input_campaign_prefix" class="form-input" value="Chiến dịch SP - " style="width: 140px; height: 32px; font-size: 11px;">
+                <input type="text" id="input_campaign_prefix" class="form-input" value="Chiến dịch SP - " style="width: 130px; height: 32px; font-size: 11px;">
               </div>
               <div class="inline-field">
                 <label>Ngân sách/ngày:</label>
-                <input type="number" id="input_daily_budget" class="form-input" value="100000" step="5000" style="width: 100px; height: 32px; font-size: 11px;">
+                <input type="number" id="input_daily_budget" class="form-input" value="100000" step="5000" style="width: 95px; height: 32px; font-size: 11px;">
               </div>
               <div class="inline-field">
                 <label>Max CPC:</label>
-                <input type="number" id="input_max_cpc" class="form-input" value="2000" step="100" style="width: 80px; height: 32px; font-size: 11px;">
+                <input type="number" id="input_max_cpc" class="form-input" value="2000" step="100" style="width: 75px; height: 32px; font-size: 11px;">
               </div>
               <span class="inline-hint-tag">Mỗi sản phẩm = 1 Chiến dịch riêng & 1 file CSV riêng</span>
             </div>
 
-            <button class="btn-generate" id="btn_execute_notion_campaigns" style="padding: 0 22px; height: 38px; flex-shrink: 0;">
+            <button type="button" class="btn-generate" id="btn_execute_notion_campaigns" style="padding: 0 20px; height: 36px; flex-shrink: 0;">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
               <span>CHẠY TẠO CHIẾN DỊCH & XUẤT CSV</span>
             </button>
