@@ -498,34 +498,55 @@ function setupEventListeners() {
   const btnSendReporterQuestion = document.getElementById('btn_send_reporter_question');
   const inputReporterQuestion = document.getElementById('input_reporter_question');
   const aiResponseBox = document.getElementById('ai_response_box');
+  let cachedReportingCampaigns = [];
 
-  function openAiReporterModal() {
+  async function openAiReporterModal() {
     if (!modalAiReporter) return;
-    
-    // Tính toán số liệu tổng hợp từ danh sách sản phẩm hiện tại
-    let totalCost = 0;
-    let totalClicks = 0;
-    let totalConv = 0;
-
-    notionTasksList.forEach(t => {
-      totalCost += Number(t.cost) || 0;
-      totalClicks += Number(t.clicks) || 0;
-      totalConv += Number(t.conversions) || 0;
-    });
-
-    const avgCpc = totalClicks > 0 ? Math.round(totalCost / totalClicks) : 0;
+    modalAiReporter.style.display = 'flex';
 
     const elCost = document.getElementById('rep_total_cost');
     const elClicks = document.getElementById('rep_total_clicks');
     const elConv = document.getElementById('rep_total_conv');
     const elAvgCpc = document.getElementById('rep_avg_cpc');
 
-    if (elCost) elCost.innerText = `${totalCost.toLocaleString('vi-VN')} đ`;
-    if (elClicks) elClicks.innerText = totalClicks.toLocaleString('vi-VN');
-    if (elConv) elConv.innerText = totalConv.toLocaleString('vi-VN');
-    if (elAvgCpc) elAvgCpc.innerText = `${avgCpc.toLocaleString('vi-VN')} đ`;
+    if (elCost) elCost.innerText = 'Đang tải...';
+    if (elClicks) elClicks.innerText = '...';
+    if (elConv) elConv.innerText = '...';
+    if (elAvgCpc) elAvgCpc.innerText = '...';
 
-    modalAiReporter.style.display = 'flex';
+    try {
+      const res = await window.electronAPI.fetchReportingCampaigns();
+      if (res && res.success) {
+        cachedReportingCampaigns = res.campaigns || [];
+        let totalCost = 0;
+        let totalClicks = 0;
+        let totalConv = 0;
+
+        cachedReportingCampaigns.forEach(c => {
+          totalCost += Number(c.cost) || 0;
+          totalClicks += Number(c.clicks) || 0;
+          totalConv += Number(c.conversions) || 0;
+        });
+
+        const avgCpc = totalClicks > 0 ? Math.round(totalCost / totalClicks) : 0;
+
+        if (elCost) elCost.innerText = `${totalCost.toLocaleString('vi-VN')} đ`;
+        if (elClicks) elClicks.innerText = totalClicks.toLocaleString('vi-VN');
+        if (elConv) elConv.innerText = totalConv.toLocaleString('vi-VN');
+        if (elAvgCpc) elAvgCpc.innerText = `${avgCpc.toLocaleString('vi-VN')} đ`;
+      } else {
+        if (elCost) elCost.innerText = '0 đ';
+        if (elClicks) elClicks.innerText = '0';
+        if (elConv) elConv.innerText = '0';
+        if (elAvgCpc) elAvgCpc.innerText = '0 đ';
+      }
+    } catch (e) {
+      console.warn('Lỗi load reporting campaigns:', e);
+      if (elCost) elCost.innerText = '0 đ';
+      if (elClicks) elClicks.innerText = '0';
+      if (elConv) elConv.innerText = '0';
+      if (elAvgCpc) elAvgCpc.innerText = '0 đ';
+    }
   }
 
   function closeAiReporterModal() {
@@ -539,6 +560,20 @@ function setupEventListeners() {
     btnCloseAiReporter.addEventListener('click', closeAiReporterModal);
   }
 
+  const btnOpenNotionReportingTab = document.getElementById('btn_open_notion_reporting_tab');
+  if (btnOpenNotionReportingTab) {
+    btnOpenNotionReportingTab.addEventListener('click', () => {
+      window.electronAPI.openExternalUrl('https://app.notion.com/p/40770655a9aa81b6ac74ef25f66c239a');
+    });
+  }
+
+  const btnOpenNotionScriptTab = document.getElementById('btn_open_notion_script_tab');
+  if (btnOpenNotionScriptTab) {
+    btnOpenNotionScriptTab.addEventListener('click', () => {
+      window.electronAPI.openExternalUrl('https://app.notion.com/p/40770655a9aa81b6ac74ef25f66c239a');
+    });
+  }
+
   async function handleAskAiReporter(questionText) {
     const q = (questionText || inputReporterQuestion.value || '').trim();
     if (!q) {
@@ -550,14 +585,14 @@ function setupEventListeners() {
     aiResponseBox.innerHTML = `
       <div style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--text-muted);">
         <span style="font-size: 20px;">🤖</span>
-        <span style="font-weight: 600;">Gemini AI đang phân tích dữ liệu Google Ads của ${notionTasksList.length} chiến dịch...</span>
+        <span style="font-weight: 600;">Gemini AI đang phân tích dữ liệu Google Ads của ${cachedReportingCampaigns.length} chiến dịch...</span>
       </div>
     `;
 
     try {
       const res = await window.electronAPI.askReportingAssistant({
         question: q,
-        tasks: notionTasksList
+        campaigns: cachedReportingCampaigns
       });
 
       if (res.success && res.analysis) {
@@ -1503,7 +1538,7 @@ function renderNotionTasks() {
       const unprocessedCount = notionTasksList.filter(t => t.status === 'Chưa xử lý').length;
       tbody.innerHTML = `
         <tr>
-          <td colspan="12" style="text-align: center; padding: 48px 20px;">
+          <td colspan="9" style="text-align: center; padding: 48px 20px;">
             <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
             <div style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
               Chưa có sản phẩm nào ở trạng thái "Chờ tạo" trên Notion
@@ -1546,7 +1581,7 @@ function renderNotionTasks() {
     } else {
       tbody.innerHTML = `
         <tr>
-          <td colspan="12" style="text-align: center; padding: 30px; color: var(--text-muted);">
+          <td colspan="9" style="text-align: center; padding: 30px; color: var(--text-muted);">
             Không tìm thấy nhiệm vụ nào phù hợp với bộ lọc hiện tại.
           </td>
         </tr>
@@ -1576,9 +1611,6 @@ function renderNotionTasks() {
     }
 
     const budgetFormatted = task.daily_budget ? `${Number(task.daily_budget).toLocaleString('vi-VN')} đ` : '100.000 đ';
-    const costFormatted = task.cost ? `${Number(task.cost).toLocaleString('vi-VN')} đ` : '0 đ';
-    const clicksFormatted = task.clicks || 0;
-    const convFormatted = task.conversions || 0;
 
     tr.innerHTML = `
       <td style="text-align: center; width: 44px;">
@@ -1597,9 +1629,6 @@ function renderNotionTasks() {
       <td style="white-space: nowrap;">
         <span class="notion-badge ${badgeClass}">● ${task.status}</span>
       </td>
-      <td style="white-space: nowrap; font-weight: 700; color: ${task.cost > 0 ? '#dc2626' : 'var(--text-muted)'};">${costFormatted}</td>
-      <td style="white-space: nowrap; font-weight: 600; color: #0284c7; text-align: center;">${clicksFormatted}</td>
-      <td style="white-space: nowrap; font-weight: 700; color: ${task.conversions > 0 ? '#16a34a' : 'var(--text-muted)'}; text-align: center;">${convFormatted}</td>
       <td style="white-space: nowrap;">
         ${task.csv_file ? `
           <span style="font-family: var(--font-mono); font-size: 11px; color: #15803d; background: #dcfce7; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; display: inline-block; max-width: 320px; user-select: text;" title="${task.csv_file}">

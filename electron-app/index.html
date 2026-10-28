@@ -336,9 +336,6 @@
                 <th style="min-width: 100px; white-space: nowrap;">Giá Bán</th>
                 <th style="min-width: 110px; white-space: nowrap;">Ngân Sách Ngày</th>
                 <th style="min-width: 140px; white-space: nowrap;">Trạng Thái</th>
-                <th style="min-width: 110px; white-space: nowrap;">Chi Phí (VNĐ)</th>
-                <th style="min-width: 80px; white-space: nowrap;">Clicks</th>
-                <th style="min-width: 90px; white-space: nowrap;">Chuyển Đổi</th>
                 <th style="min-width: 260px; white-space: nowrap;">File CSV</th>
                 <th style="min-width: 110px; white-space: nowrap;">Cập Nhật</th>
                 <th style="min-width: 150px; text-align: center; white-space: nowrap;">Thao Tác</th>
@@ -346,7 +343,7 @@
             </thead>
             <tbody id="notion_tasks_tbody">
               <tr>
-                <td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">
                   Đang tải dữ liệu từ Notion...
                 </td>
               </tr>
@@ -583,10 +580,15 @@
           <span style="font-size: 22px;">📊</span>
           <div>
             <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: #fff;">AI Trợ Lý Báo Cáo Google Ads (Gemini 3.8 Flash)</h3>
-            <p style="font-size: 11px; color: #c7d2fe; margin: 2px 0 0 0;">Phân tích hiệu suất thời gian thực từ dữ liệu Google Ads đã đồng bộ về Notion</p>
+            <p style="font-size: 11px; color: #c7d2fe; margin: 2px 0 0 0;">Phân tích hiệu suất thời gian thực từ dữ liệu Google Ads trong tab riêng trên Notion</p>
           </div>
         </div>
-        <button type="button" class="btn-close-modal" id="btn_close_ai_reporter" style="color: #fff;">✕</button>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button type="button" class="btn-hub-link" id="btn_open_notion_reporting_tab" style="background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3); color: #fff; font-size: 11px; padding: 5px 12px; cursor: pointer; border-radius: 6px;">
+            Mở Tab Báo Cáo Notion ↗
+          </button>
+          <button type="button" class="btn-close-modal" id="btn_close_ai_reporter" style="color: #fff;">✕</button>
+        </div>
       </div>
 
       <div class="modal-body" style="padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
@@ -659,10 +661,15 @@
           <span style="font-size: 22px;">📜</span>
           <div>
             <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: #fff;">Google Ads Script Tự Động Đồng Bộ Dữ Liệu Về Notion</h3>
-            <p style="font-size: 11px; color: #a7f3d0; margin: 2px 0 0 0;">Chỉ cần dán 1 lần vào tài khoản Google Ads - Tự động cập nhật Chi phí, Clicks, Chuyển đổi mỗi ngày</p>
+            <p style="font-size: 11px; color: #a7f3d0; margin: 2px 0 0 0;">Dữ liệu tự động đẩy về tab riêng "Báo Cáo Camp Google Ads" trên Notion</p>
           </div>
         </div>
-        <button type="button" class="btn-close-modal" id="btn_close_script_modal" style="color: #fff;">✕</button>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button type="button" class="btn-hub-link" id="btn_open_notion_script_tab" style="background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3); color: #fff; font-size: 11px; padding: 5px 12px; cursor: pointer; border-radius: 6px;">
+            Mở Tab Báo Cáo Notion ↗
+          </button>
+          <button type="button" class="btn-close-modal" id="btn_close_script_modal" style="color: #fff;">✕</button>
+        </div>
       </div>
 
       <div class="modal-body" style="padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;">
@@ -672,7 +679,7 @@
           1. Bấm nút <b>"📋 Sao Chép Toàn Bộ Mã Script"</b> bên dưới.<br>
           2. Mở tài khoản Google Ads $\rightarrow$ Bấm <b>"Công cụ và cài đặt"</b> (Tools & Settings) $\rightarrow$ Chọn <b>"Tập lệnh"</b> (Scripts).<br>
           3. Bấm dấu <b>[+]</b> để tạo Tập lệnh mới $\rightarrow$ Xóa code cũ và dán toàn bộ đoạn mã này vào $\rightarrow$ Bấm <b>"Ủy quyền"</b> (Authorize) $\rightarrow$ Bấm <b>"Chạy"</b> (Run).<br>
-          4. Tại danh sách tập lệnh, đặt <b>Tần suất chạy: Hàng ngày lúc 23:00</b> (hoặc Hàng giờ). Toàn bộ số liệu sẽ tự động đẩy về Notion và hiển thị trong tool.
+          4. Tại danh sách tập lệnh, đặt <b>Tần suất chạy: Hàng ngày lúc 23:00</b> (hoặc Hàng giờ). Toàn bộ số liệu sẽ tự động đẩy về tab riêng: <b>Báo Cáo Camp Google Ads</b> trên Notion.
         </div>
 
         <!-- Copy Button -->

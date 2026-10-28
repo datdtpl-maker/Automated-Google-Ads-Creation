@@ -31,5 +31,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // AI Trợ lý báo cáo & Google Ads Script
     askReportingAssistant: (params) => ipcRenderer.invoke('ask-reporting-assistant', params),
-    getGoogleAdsScript: () => ipcRenderer.invoke('get-google-ads-script')
+    getGoogleAdsScript: () => ipcRenderer.invoke('get-google-ads-script'),
+    fetchReportingCampaigns: () => ipcRenderer.invoke('fetch-reporting-campaigns')
 });

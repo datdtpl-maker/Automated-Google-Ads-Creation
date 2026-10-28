@@ -12,6 +12,7 @@ const EMBEDDED_NOTION = Buffer.from('bnRuXzMwMTcxMDQ4MzYyR1JGZWxzYjd0SWpDbTFPOWF
 const DEFAULT_NOTION_TOKEN = EMBEDDED_NOTION;
 const DEFAULT_NOTION_PAGE_ID = '37570655-a9aa-8115-8419-e440d1aa0ff5';
 const DEFAULT_NOTION_DATABASE_ID = '40270655-a9aa-81a0-93d6-dae93c86f895';
+const DEFAULT_NOTION_REPORTING_DATABASE_ID = '40770655-a9aa-81b6-ac74-ef25f66c239a';
 
 const DEFAULT_CONFIG = {
     gemini_api_key: EMBEDDED_KEY,
@@ -27,7 +28,8 @@ const DEFAULT_CONFIG = {
     root_images_dir: "D:\\Project Anti\\Auto-Google-Ads\\output\\images",
     notion_token: DEFAULT_NOTION_TOKEN,
     notion_page_id: DEFAULT_NOTION_PAGE_ID,
-    notion_database_id: DEFAULT_NOTION_DATABASE_ID
+    notion_database_id: DEFAULT_NOTION_DATABASE_ID,
+    notion_reporting_database_id: DEFAULT_NOTION_REPORTING_DATABASE_ID
 };
 
 // Kiểm tra và sửa lỗi chuỗi mojibake
@@ -1225,10 +1227,6 @@ async function fetchNotionTasksFromDatabase(filterStatus = null) {
                 const dailyBudget = props['Ngân Sách Ngày']?.number || 100000;
                 const csvFile = (props['File CSV']?.rich_text || []).map(t => t.plain_text).join('') || '';
                 const updatedAt = props['Ngày Cập Nhật']?.date?.start || '';
-                const cost = props['Chi Phí (VNĐ)']?.number || 0;
-                const clicks = props['Lượt Click']?.number || 0;
-                const conversions = props['Chuyển Đổi']?.number || 0;
-                const cpc = props['CPC (VNĐ)']?.number || 0;
 
                 allRows.push({
                     page_id: r.id,
@@ -1240,11 +1238,7 @@ async function fetchNotionTasksFromDatabase(filterStatus = null) {
                     category,
                     daily_budget: dailyBudget,
                     csv_file: csvFile,
-                    updated_at: updatedAt,
-                    cost,
-                    clicks,
-                    conversions,
-                    cpc
+                    updated_at: updatedAt
                 });
             }
         }
@@ -1254,6 +1248,58 @@ async function fetchNotionTasksFromDatabase(filterStatus = null) {
     }
 
     return { success: true, tasks: allRows, total: allRows.length };
+}
+
+async function fetchNotionReportingCampaigns() {
+    const cfg = readConfig();
+    const dbId = cfg.notion_reporting_database_id || DEFAULT_NOTION_REPORTING_DATABASE_ID;
+    
+    let allRows = [];
+    let hasMore = true;
+    let startCursor = undefined;
+
+    while (hasMore) {
+        const body = { page_size: 100 };
+        if (startCursor) body.start_cursor = startCursor;
+
+        const res = await callNotionApi(`/v1/databases/${dbId}/query`, 'POST', body);
+        if (!res.success) {
+            return { success: false, error: res.error, campaigns: [] };
+        }
+
+        if (res.data?.results) {
+            for (const r of res.data.results) {
+                const props = r.properties || {};
+                const title = (props['Tên Chiến Dịch']?.title || []).map(t => t.plain_text).join('') || 'Không có tên';
+                const status = props['Trạng Thái']?.select?.name || 'Đang chạy';
+                const budget = props['Ngân Sách Ngày']?.number || 0;
+                const cost = props['Chi Phí (VNĐ)']?.number || 0;
+                const clicks = props['Lượt Click']?.number || 0;
+                const impressions = props['Lượt Hiển Thị']?.number || 0;
+                const conversions = props['Chuyển Đổi']?.number || 0;
+                const cpc = props['CPC (VNĐ)']?.number || 0;
+                const updatedAt = props['Ngày Cập Nhật']?.date?.start || '';
+
+                allRows.push({
+                    page_id: r.id,
+                    title,
+                    status,
+                    budget,
+                    cost,
+                    clicks,
+                    impressions,
+                    conversions,
+                    cpc,
+                    updated_at: updatedAt
+                });
+            }
+        }
+
+        hasMore = !!res.data?.has_more;
+        startCursor = res.data?.next_cursor;
+    }
+
+    return { success: true, campaigns: allRows, total: allRows.length };
 }
 
 async function updateNotionTaskProperties(pageId, status, csvFileName = null) {
@@ -1475,40 +1521,38 @@ ipcMain.handle('run-notion-campaigns', async (event, params) => {
 function getGoogleAdsScriptCode() {
     const cfg = readConfig();
     const token = cfg.notion_token || DEFAULT_CONFIG.notion_token;
-    const dbId = cfg.notion_database_id || DEFAULT_CONFIG.notion_database_id;
-    const prefix = cfg.campaign_prefix || 'Chiến dịch SP - ';
+    const reportingDbId = cfg.notion_reporting_database_id || DEFAULT_NOTION_REPORTING_DATABASE_ID;
 
     return `/**
- * GOOGLE ADS SCRIPT: TỰ ĐỘNG ĐỒNG BỘ SỐ LIỆU BÁO CÁO VỀ NOTION
+ * GOOGLE ADS SCRIPT: TỰ ĐỘNG ĐỒNG BỘ BÁO CÁO VỀ NOTION (TAB RIÊNG)
+ * Tab Notion: "Báo Cáo Camp Google Ads"
  * Website: khaihoanderma.com | Khải Hoàn Derma Ads Automation
  * 
- * Hướng dẫn cài đặt trong 1 phút:
+ * HƯỚNG DẪN CÀI ĐẶT 1 PHÚT:
  * 1. Đăng nhập Google Ads -> Bấm "Công cụ và cài đặt" (Tools & Settings) -> "Tập lệnh" (Scripts).
- * 2. Bấm nút dấu [+] tạo Tập lệnh mới -> Xóa hết code mẫu và dán toàn bộ đoạn mã này vào.
- * 3. Bấm "Ủy quyền" (Authorize) để cấp quyền cho Script đọc số liệu Google Ads.
- * 4. Bấm "Chạy" (Run) để kiểm tra lần đầu.
- * 5. Tại danh sách tập lệnh, đặt lịch chạy: "Hàng ngày" (Daily lúc 23:00) hoặc "Hàng giờ" (Hourly).
+ * 2. Bấm dấu [+] tạo Tập lệnh mới -> Xóa hết code mặc định và dán toàn bộ đoạn mã này vào.
+ * 3. Bấm "Ủy quyền" (Authorize) -> Bấm "Chạy" (Run) để kiểm tra lần đầu.
+ * 4. Đặt tần suất chạy: Hàng ngày lúc 23:00 (hoặc Hàng giờ). Số liệu tự động cập nhật về Notion.
  */
 
 const CONFIG = {
   NOTION_TOKEN: '${token}',
-  NOTION_DATABASE_ID: '${dbId}',
-  START_DATE: '2022-01-01', // Lấy toàn bộ số liệu lịch sử từ trước đến nay
-  CAMPAIGN_PREFIX: '${prefix}'
+  NOTION_DATABASE_ID: '${reportingDbId}', // Tab riêng: Báo Cáo Camp Google Ads
+  START_DATE: '2022-01-01' // Đồng bộ toàn bộ dữ liệu lịch sử từ trước đến hiện tại
 };
 
 function main() {
-  Logger.log('🚀 Bắt đầu quét số liệu Google Ads (Toàn bộ từ trước đến hiện tại) và đồng bộ về Notion...');
-  
-  // 1. Lấy danh sách nhiệm vụ/sản phẩm trên Notion
-  const notionMap = fetchNotionDatabaseMap();
-  Logger.log('📋 Đã tìm thấy ' + Object.keys(notionMap).length + ' dòng dữ liệu trên Notion.');
+  Logger.log('🚀 Bắt đầu quét toàn bộ số liệu Google Ads và đồng bộ về Notion (Tab: Báo Cáo Camp Google Ads)...');
 
-  // 2. Xác định mốc thời gian: Từ ngày bắt đầu đến ngày hôm nay
+  // 1. Lấy danh sách các dòng chiến dịch hiện có trong tab Báo Cáo Notion
+  const notionMap = fetchNotionDatabaseMap();
+  Logger.log('📋 Đã tìm thấy ' + Object.keys(notionMap).length + ' chiến dịch hiện có trong tab Báo Cáo Notion.');
+
+  // 2. Mốc thời gian đến ngày hôm nay
   const timeZone = AdsApp.currentAccount().getTimeZone();
   const endDate = Utilities.formatDate(new Date(), timeZone, 'yyyy-MM-dd');
 
-  // 3. Truy vấn báo cáo hiệu quả chiến dịch tích lũy toàn bộ
+  // 3. Truy vấn toàn bộ chiến dịch trên tài khoản Google Ads
   const query = 
     "SELECT campaign.id, campaign.name, campaign.status, " +
     "metrics.impressions, metrics.clicks, metrics.cost_micros, " +
@@ -1518,25 +1562,40 @@ function main() {
 
   const searchResults = AdsApp.search(query);
   let updatedCount = 0;
+  let createdCount = 0;
 
   while (searchResults.hasNext()) {
     const row = searchResults.next();
     const campName = row.campaign.name;
+    const statusRaw = row.campaign.status;
+    let statusName = 'Đang chạy';
+    if (statusRaw === 'PAUSED') statusName = 'Tạm dừng';
+    else if (statusRaw === 'REMOVED') statusName = 'Đã xóa';
+
+    const impressions = row.metrics.impressions || 0;
     const clicks = row.metrics.clicks || 0;
     const costVnd = Math.round((row.metrics.cost_micros || 0) / 1000000);
     const conversions = Math.round((row.metrics.conversions || 0) * 10) / 10;
     const cpcVnd = Math.round((row.metrics.average_cpc || 0) / 1000000);
 
-    // Tìm dòng Notion tương ứng
-    const pageId = findNotionPageId(campName, notionMap);
+    const lowerName = campName.toLowerCase().trim();
+    const pageId = notionMap[lowerName];
+
     if (pageId) {
-      updateNotionPageMetrics(pageId, costVnd, clicks, conversions, cpcVnd);
-      Logger.log('✓ Đã đồng bộ: ' + campName + ' | Chi phí: ' + costVnd + 'đ | Clicks: ' + clicks + ' | C.Đổi: ' + conversions);
+      updateNotionPageMetrics(pageId, statusName, impressions, clicks, costVnd, conversions, cpcVnd);
+      Logger.log('✓ Cập nhật: ' + campName + ' | ' + costVnd + 'đ | ' + clicks + ' clicks | ' + impressions + ' views');
       updatedCount++;
+    } else {
+      const newPage = createNotionCampaignRow(campName, statusName, impressions, clicks, costVnd, conversions, cpcVnd);
+      if (newPage && newPage.id) {
+        notionMap[lowerName] = newPage.id;
+        Logger.log('+ Tạo mới dòng Notion: ' + campName + ' | ' + costVnd + 'đ | ' + clicks + ' clicks');
+        createdCount++;
+      }
     }
   }
 
-  Logger.log('🎉 Hoàn tất! Đã cập nhật số liệu cho ' + updatedCount + ' chiến dịch lên Notion.');
+  Logger.log('🎉 Hoàn tất! Đã cập nhật: ' + updatedCount + ' chiến dịch | Thêm mới: ' + createdCount + ' chiến dịch vào Notion.');
 }
 
 function fetchNotionDatabaseMap() {
@@ -1549,18 +1608,18 @@ function fetchNotionDatabaseMap() {
     if (startCursor) payload.start_cursor = startCursor;
 
     const res = callNotionApi('/v1/databases/' + CONFIG.NOTION_DATABASE_ID + '/query', 'POST', payload);
-    if (res && res.results) {
+    if (res && res.results && Array.isArray(res.results)) {
       res.results.forEach(function(item) {
-        const titleProp = item.properties['Tên Chiến Dịch / Sản Phẩm'];
+        const titleProp = item.properties['Tên Chiến Dịch'];
         let title = '';
         if (titleProp && titleProp.title && titleProp.title.length > 0) {
           title = titleProp.title.map(function(t) { return t.plain_text; }).join('').trim();
         }
         if (title) {
-          map[title.toLowerCase()] = item.id;
+          map[title.toLowerCase().trim()] = item.id;
         }
       });
-      hasMore = res.has_more;
+      hasMore = !!res.has_more;
       startCursor = res.next_cursor;
     } else {
       hasMore = false;
@@ -1569,35 +1628,48 @@ function fetchNotionDatabaseMap() {
   return map;
 }
 
-function findNotionPageId(campName, map) {
-  let cleanName = campName.replace(CONFIG.CAMPAIGN_PREFIX, '').trim().toLowerCase();
-  if (map[cleanName]) return map[cleanName];
-
-  for (let key in map) {
-    if (cleanName.includes(key) || key.includes(cleanName)) {
-      return map[key];
-    }
-  }
-  return null;
-}
-
-function updateNotionPageMetrics(pageId, cost, clicks, conversions, cpc) {
+function updateNotionPageMetrics(pageId, statusName, impressions, clicks, costVnd, conversions, cpcVnd) {
   const payload = {
     properties: {
-      'Chi Phí (VNĐ)': { number: cost },
+      'Trạng Thái': { select: { name: statusName } },
+      'Lượt Hiển Thị': { number: impressions },
       'Lượt Click': { number: clicks },
+      'Chi Phí (VNĐ)': { number: costVnd },
       'Chuyển Đổi': { number: conversions },
-      'CPC (VNĐ)': { number: cpc },
+      'CPC (VNĐ)': { number: cpcVnd },
       'Ngày Cập Nhật': { date: { start: new Date().toISOString() } }
     }
   };
   callNotionApi('/v1/pages/' + pageId, 'PATCH', payload);
 }
 
+function createNotionCampaignRow(campName, statusName, impressions, clicks, costVnd, conversions, cpcVnd) {
+  const payload = {
+    parent: { database_id: CONFIG.NOTION_DATABASE_ID },
+    properties: {
+      'Tên Chiến Dịch': {
+        title: [{ text: { content: campName } }]
+      },
+      'Trạng Thái': {
+        select: { name: statusName }
+      },
+      'Lượt Hiển Thị': { number: impressions },
+      'Lượt Click': { number: clicks },
+      'Chi Phí (VNĐ)': { number: costVnd },
+      'Chuyển Đổi': { number: conversions },
+      'CPC (VNĐ)': { number: cpcVnd },
+      'Ngân Sách Ngày': { number: 100000 },
+      'Ngày Cập Nhật': { date: { start: new Date().toISOString() } }
+    }
+  };
+  return callNotionApi('/v1/pages', 'POST', payload);
+}
+
 function callNotionApi(endpoint, method, body) {
   const url = 'https://api.notion.com' + endpoint;
   const options = {
-    method: method,
+    method: method.toLowerCase(),
+    contentType: 'application/json',
     headers: {
       'Authorization': 'Bearer ' + CONFIG.NOTION_TOKEN,
       'Notion-Version': '2022-06-28',
@@ -1610,9 +1682,16 @@ function callNotionApi(endpoint, method, body) {
   }
   try {
     const response = UrlFetchApp.fetch(url, options);
-    return JSON.parse(response.getContentText());
+    const code = response.getResponseCode();
+    const text = response.getContentText();
+    if (code >= 200 && code < 300) {
+      return JSON.parse(text);
+    } else {
+      Logger.log('Lỗi API Notion (HTTP ' + code + '): ' + text);
+      return null;
+    }
   } catch (e) {
-    Logger.log('Lỗi gọi Notion: ' + e.toString());
+    Logger.log('Lỗi ngoại lệ UrlFetchApp: ' + e.toString());
     return null;
   }
 }
@@ -1623,11 +1702,15 @@ ipcMain.handle('get-google-ads-script', async () => {
     return {
         success: true,
         script: getGoogleAdsScriptCode(),
-        notionUrl: 'https://app.notion.com/p/40270655a9aa81a093d6dae93c86f895'
+        notionUrl: 'https://app.notion.com/p/40770655a9aa81b6ac74ef25f66c239a'
     };
 });
 
-ipcMain.handle('ask-reporting-assistant', async (event, { question, tasks }) => {
+ipcMain.handle('fetch-reporting-campaigns', async () => {
+    return await fetchNotionReportingCampaigns();
+});
+
+ipcMain.handle('ask-reporting-assistant', async (event, { question, campaigns }) => {
     try {
         const cfg = readConfig();
         const apiKey = cfg.gemini_api_key || DEFAULT_CONFIG.gemini_api_key;
@@ -1635,54 +1718,57 @@ ipcMain.handle('ask-reporting-assistant', async (event, { question, tasks }) => 
             return { success: false, error: 'Chưa có Gemini API Key trong cấu hình!' };
         }
 
-        let taskList = tasks;
-        if (!taskList || !Array.isArray(taskList) || taskList.length === 0) {
-            const dbRes = await fetchNotionTasksFromDatabase('all');
-            taskList = dbRes.tasks || [];
+        let campList = campaigns;
+        if (!campList || !Array.isArray(campList) || campList.length === 0) {
+            const dbRes = await fetchNotionReportingCampaigns();
+            campList = dbRes.campaigns || [];
         }
 
         let totalCost = 0;
         let totalClicks = 0;
+        let totalImpressions = 0;
         let totalConversions = 0;
         const activeRows = [];
 
-        taskList.forEach(t => {
-            const cost = Number(t.cost) || 0;
-            const clicks = Number(t.clicks) || 0;
-            const conv = Number(t.conversions) || 0;
-            const cpc = Number(t.cpc) || 0;
+        campList.forEach(c => {
+            const cost = Number(c.cost) || 0;
+            const clicks = Number(c.clicks) || 0;
+            const imp = Number(c.impressions) || 0;
+            const conv = Number(c.conversions) || 0;
+            const cpc = Number(c.cpc) || 0;
             totalCost += cost;
             totalClicks += clicks;
+            totalImpressions += imp;
             totalConversions += conv;
 
-            if (cost > 0 || clicks > 0 || conv > 0 || t.status === 'Đang chạy Google Ads') {
-                activeRows.push({
-                    title: t.title,
-                    status: t.status,
-                    budget: t.daily_budget,
-                    cost,
-                    clicks,
-                    conversions: conv,
-                    cpc
-                });
-            }
+            activeRows.push({
+                title: c.title,
+                status: c.status,
+                budget: c.budget,
+                cost,
+                clicks,
+                impressions: imp,
+                conversions: conv,
+                cpc
+            });
         });
 
         const avgCpc = totalClicks > 0 ? Math.round(totalCost / totalClicks) : 0;
-        const totalCampCount = taskList.length;
-        const runningCampCount = taskList.filter(t => t.status === 'Đang chạy Google Ads').length;
+        const totalCampCount = campList.length;
+        const runningCampCount = campList.filter(c => c.status === 'Đang chạy').length;
 
         const summaryContext = `
 DỮ LIỆU BÁO CÁO GOOGLE ADS TỔNG HỢP (WEBSITE KHAIHOANDERMA.COM):
-- Tổng số chiến dịch sản phẩm: ${totalCampCount}
-- Số chiến dịch Đang chạy Google Ads: ${runningCampCount}
+- Tổng số chiến dịch được ghi nhận trong tab Báo Cáo Notion: ${totalCampCount}
+- Số chiến dịch Đang chạy: ${runningCampCount}
 - Tổng chi phí tiêu (VNĐ): ${totalCost.toLocaleString('vi-VN')} đ
-- Tổng lượt Click: ${totalClicks}
+- Tổng lượt hiển thị: ${totalImpressions.toLocaleString('vi-VN')}
+- Tổng lượt Click: ${totalClicks.toLocaleString('vi-VN')}
 - Tổng lượt Chuyển đổi: ${totalConversions}
 - Giá CPC trung bình: ${avgCpc.toLocaleString('vi-VN')} đ
 
-DANH SÁCH CHIẾN DỊCH TIÊU BIỂU / CÓ DỮ LIỆU:
-${activeRows.slice(0, 30).map((r, i) => `${i + 1}. [${r.status}] ${r.title} | Ngân sách: ${r.budget}đ | Chi phí: ${r.cost.toLocaleString('vi-VN')}đ | Clicks: ${r.clicks} | Chuyển đổi: ${r.conversions} | CPC: ${r.cpc.toLocaleString('vi-VN')}đ`).join('\n') || '(Chưa có chiến dịch nào phát sinh chi phí hoặc click - Hãy kiểm tra xem Script Google Ads đã chạy đồng bộ hôm nay chưa)'}
+DANH SÁCH CHI TIẾT CÁC CHIẾN DỊCH:
+${activeRows.map((r, i) => `${i + 1}. [${r.status}] ${r.title} | Ngân sách: ${r.budget ? r.budget.toLocaleString('vi-VN') + 'đ' : '--'} | Chi phí: ${r.cost.toLocaleString('vi-VN')}đ | Hiển thị: ${r.impressions} | Clicks: ${r.clicks} | Chuyển đổi: ${r.conversions} | CPC: ${r.cpc.toLocaleString('vi-VN')}đ`).join('\n') || '(Chưa có chiến dịch nào trong tab Báo Cáo Notion - Hãy chạy Script Google Ads để cập nhật)'}
 `;
 
         const systemPrompt = `Bạn là Chuyên gia Cấp cao về Google Ads và Tối ưu hóa Chiến dịch Thương mại Điện tử cho Khải Hoàn Derma (khaihoanderma.com).
@@ -1692,7 +1778,7 @@ YÊU CẦU PHONG CÁCH VÀ TRÌNH BÀY (BẮT BUỘC):
 1. Áp dụng phong cách Action-first (i-have-adhd): Câu trả lời / kết luận trực diện ngay dòng đầu tiên.
 2. Trình bày bằng Tiếng Việt có dấu, dùng gạch đầu dòng hoặc đánh số rõ ràng, ngắn gọn, súc tích, chuyên nghiệp.
 3. Nếu chưa có số liệu chi phí (tất cả bằng 0), hãy giải thích ngắn gọn rằng chiến dịch mới tạo hoặc cần dán Script vào Google Ads để tự động kéo số liệu về, và hướng dẫn người dùng bấm nút "Lấy Script Google Ads".
-4. Nếu có số liệu: Phân tích rõ ràng (Chi phí, Clicks, Chuyển đổi, CPC), chỉ ra sản phẩm nào hoạt động tốt (ra chuyển đổi, CPC rẻ) và cảnh báo sản phẩm nào cắn tiền nhiều mà không ra đơn.
+4. Nếu có số liệu: Phân tích rõ ràng (Chi phí, Clicks, Chuyển đổi, CPC), chỉ ra sản phẩm/chiến dịch nào hoạt động tốt (ra chuyển đổi, CPC rẻ) và cảnh báo sản phẩm nào cắn tiền nhiều mà không ra đơn.
 5. Luôn kết thúc bằng DUY NHẤT 1-2 hành động cụ thể người dùng nên thực hiện ngay (ví dụ: tăng/giảm ngân sách, tạm dừng camp, kiểm tra trang đích).`;
 
         const payload = {
