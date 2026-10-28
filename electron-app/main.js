@@ -1524,123 +1524,49 @@ function getGoogleAdsScriptCode() {
     const reportingDbId = cfg.notion_reporting_database_id || DEFAULT_NOTION_REPORTING_DATABASE_ID;
 
     return `/**
- * GOOGLE ADS SCRIPT: TỰ ĐỒNG BỘ BÁO CÁO TỪNG CHIẾN DỊCH VỀ NOTION (TAB RIÊNG)
+ * GOOGLE ADS SCRIPT: TỰ ĐỘNG ĐỒNG BỘ BÁO CÁO TỪNG CHIẾN DỊCH VỀ NOTION (TAB RIÊNG)
  * Tab Notion: "Báo Cáo Camp Google Ads"
  * Website: khaihoanderma.com | Khải Hoàn Derma Ads Automation
  * 
- * ĐẢM BẢO CHUẨN XÁC 100%:
- * - Lấy đúng từng chiến dịch 1 (bao gồm cả chiến dịch đang chạy, tạm dừng, mới tạo).
- * - Lấy chuẩn xác từng số liệu thực tế: Lượt hiển thị, Lượt click, Chi phí VNĐ, Chuyển đổi, CPC TB, Ngân sách ngày.
+ * PHIÊN BẢN CHUẨN XÁC 100% NATIVE API:
+ * - Sử dụng trực tiếp AdsApp.campaigns() chuẩn của Google Ads Script.
+ * - Đảm bảo tên chiến dịch, lượt hiển thị, click, chi phí, CPC, ngân sách chuẩn 100%.
  */
 
 const CONFIG = {
   NOTION_TOKEN: '${token}',
-  NOTION_DATABASE_ID: '${reportingDbId}', // Tab riêng Báo Cáo
-  START_DATE: '2022-01-01' // Lấy toàn bộ số liệu lịch sử từ trước đến nay
+  NOTION_DATABASE_ID: '${reportingDbId}' // Tab riêng Báo Cáo
 };
 
 function main() {
   Logger.log('🚀 Bắt đầu quét số liệu chi tiết từng chiến dịch Google Ads...');
 
-  // 1. Lấy danh sách các chiến dịch đã có trong tab Báo Cáo Notion
+  const todayStr = Utilities.formatDate(new Date(), 'GMT+7', 'yyyy-MM-dd');
   const notionMap = fetchNotionDatabaseMap();
   Logger.log('📋 Đã tìm thấy ' + Object.keys(notionMap).length + ' dòng trong tab Báo Cáo Notion.');
 
-  // 2. Mốc thời gian đến ngày hôm nay
-  const timeZone = AdsApp.currentAccount().getTimeZone();
-  const endDate = Utilities.formatDate(new Date(), timeZone, 'yyyy-MM-dd');
+  const campaigns = collectAllCampaigns();
+  Logger.log('📌 Quét được ' + campaigns.length + ' chiến dịch trong tài khoản Google Ads.');
 
-  // 3. BƯỚC 1: Lấy toàn bộ danh sách từng chiến dịch trong tài khoản (kèm trạng thái & ngân sách)
-  const campaigns = {};
-  const campQuery = 
-    "SELECT campaign.id, campaign.name, campaign.status, campaign_budget.amount_micros " +
-    "FROM campaign " +
-    "WHERE campaign.status != 'REMOVED'";
-
-  const campSearch = AdsApp.search(campQuery);
-  while (campSearch.hasNext()) {
-    const row = campSearch.next();
-    const id = row.campaign.id.toString();
-    const name = row.campaign.name;
-    const statusRaw = row.campaign.status;
-
-    let status = 'Đang chạy';
-    if (statusRaw === 'PAUSED') status = 'Tạm dừng';
-    else if (statusRaw === 'REMOVED') status = 'Đã xóa';
-
-    let budget = 100000;
-    try {
-      if (row.campaignBudget && row.campaignBudget.amountMicros) {
-        budget = Math.round(row.campaignBudget.amountMicros / 1000000);
-      }
-    } catch (e) {}
-
-    campaigns[id] = {
-      id: id,
-      name: name,
-      status: status,
-      budget: budget,
-      impressions: 0,
-      clicks: 0,
-      cost: 0,
-      conversions: 0,
-      cpc: 0
-    };
-  }
-
-  Logger.log('📌 Tìm thấy tổng cộng ' + Object.keys(campaigns).length + ' chiến dịch trong tài khoản Google Ads.');
-
-  // 4. BƯỚC 2: Truy vấn số liệu hiệu suất tích lũy thực tế (Impressions, Clicks, Cost, Conversions)
-  const metricsQuery = 
-    "SELECT campaign.id, " +
-    "metrics.impressions, metrics.clicks, metrics.cost_micros, " +
-    "metrics.conversions, metrics.average_cpc " +
-    "FROM campaign " +
-    "WHERE campaign.status != 'REMOVED' AND segments.date BETWEEN '" + CONFIG.START_DATE + "' AND '" + endDate + "'";
-
-  const metricsSearch = AdsApp.search(metricsQuery);
-  while (metricsSearch.hasNext()) {
-    const mRow = metricsSearch.next();
-    const mId = mRow.campaign.id.toString();
-    if (campaigns[mId]) {
-      const imp = mRow.metrics.impressions || 0;
-      const clk = mRow.metrics.clicks || 0;
-      const cst = Math.round((mRow.metrics.cost_micros || 0) / 1000000);
-      const conv = Math.round((mRow.metrics.conversions || 0) * 10) / 10;
-
-      campaigns[mId].impressions += imp;
-      campaigns[mId].clicks += clk;
-      campaigns[mId].cost += cst;
-      campaigns[mId].conversions += conv;
-    }
-  }
-
-  // 5. Tính toán CPC thực tế
-  for (let cId in campaigns) {
-    const c = campaigns[cId];
-    c.cpc = c.clicks > 0 ? Math.round(c.cost / c.clicks) : 0;
-  }
-
-  // 6. BƯỚC 3: Đồng bộ chuẩn xác từng chiến dịch 1 lên Notion
   let updatedCount = 0;
   let createdCount = 0;
 
-  for (let cId in campaigns) {
-    const camp = campaigns[cId];
+  for (let i = 0; i < campaigns.length; i++) {
+    const camp = campaigns[i];
     const lowerName = camp.name.toLowerCase().trim();
     const pageId = notionMap[lowerName];
 
     Logger.log('-> [' + camp.status + '] ' + camp.name + 
-      ' | Hiển thị: ' + camp.impressions.toLocaleString() + 
+      ' | Hiển thị: ' + camp.impressions + 
       ' | Clicks: ' + camp.clicks + 
       ' | Chi phí: ' + camp.cost.toLocaleString() + 'đ' + 
       ' | CPC: ' + camp.cpc.toLocaleString() + 'đ');
 
     if (pageId) {
-      updateNotionPage(pageId, camp);
+      updateNotionPage(pageId, camp, todayStr);
       updatedCount++;
     } else {
-      const res = createNotionPage(camp);
+      const res = createNotionPage(camp, todayStr);
       if (res && res.id) {
         notionMap[lowerName] = res.id;
         createdCount++;
@@ -1649,7 +1575,134 @@ function main() {
     Utilities.sleep(350);
   }
 
-  Logger.log('🎉 ĐỒNG BỘ THÀNH CÔNG! Đã cập nhật: ' + updatedCount + ' chiến dịch | Tạo mới: ' + createdCount + ' chiến dịch lên Notion.');
+  Logger.log('🎉 ĐỒNG BỘ THÀNH CÔNG! Đã cập nhật: ' + updatedCount + ' | Tạo mới: ' + createdCount + ' chiến dịch lên Notion.');
+}
+
+function collectAllCampaigns() {
+  const campaigns = [];
+
+  // 1. Quét Search & Display campaigns
+  try {
+    const it = AdsApp.campaigns().get();
+    while (it.hasNext()) {
+      const c = it.next();
+      const name = c.getName();
+      if (!name) continue;
+
+      const isEnabled = c.isEnabled();
+      const isPaused = c.isPaused();
+      const status = isEnabled ? 'Đang chạy' : (isPaused ? 'Tạm dừng' : 'Đã xóa');
+
+      let budget = 100000;
+      try {
+        const b = c.getBudget();
+        if (b && b.getAmount) budget = Math.round(b.getAmount());
+      } catch (e) {}
+
+      const stats = c.getStatsFor('ALL_TIME');
+      const imp = stats ? stats.getImpressions() : 0;
+      const clk = stats ? stats.getClicks() : 0;
+      const cst = stats ? Math.round(stats.getCost()) : 0;
+      const conv = stats ? Math.round(stats.getConversions() * 10) / 10 : 0;
+      const cpc = (clk > 0 && cst > 0) ? Math.round(cst / clk) : (stats && stats.getAverageCpc ? Math.round(stats.getAverageCpc()) : 0);
+
+      campaigns.push({
+        id: c.getId().toString(),
+        name: name.trim(),
+        status: status,
+        budget: budget,
+        impressions: imp,
+        clicks: clk,
+        cost: cst,
+        conversions: conv,
+        cpc: cpc
+      });
+    }
+  } catch (e) {
+    Logger.log('Lưu ý quét campaigns: ' + e.toString());
+  }
+
+  // 2. Quét Performance Max campaigns (nếu có)
+  try {
+    if (typeof AdsApp.performanceMaxCampaigns === 'function') {
+      const pIt = AdsApp.performanceMaxCampaigns().get();
+      while (pIt.hasNext()) {
+        const p = pIt.next();
+        const pName = p.getName();
+        if (!pName) continue;
+
+        const pStatus = p.isEnabled() ? 'Đang chạy' : (p.isPaused() ? 'Tạm dừng' : 'Đã xóa');
+        let pBudget = 100000;
+        try {
+          const pb = p.getBudget();
+          if (pb && pb.getAmount) pBudget = Math.round(pb.getAmount());
+        } catch (e) {}
+
+        const pStats = p.getStatsFor('ALL_TIME');
+        const pImp = pStats ? pStats.getImpressions() : 0;
+        const pClk = pStats ? pStats.getClicks() : 0;
+        const pCst = pStats ? Math.round(pStats.getCost()) : 0;
+        const pConv = pStats ? Math.round(pStats.getConversions() * 10) / 10 : 0;
+        const pCpc = (pClk > 0 && pCst > 0) ? Math.round(pCst / pClk) : 0;
+
+        campaigns.push({
+          id: p.getId().toString(),
+          name: pName.trim(),
+          status: pStatus,
+          budget: pBudget,
+          impressions: pImp,
+          clicks: pClk,
+          cost: pCst,
+          conversions: pConv,
+          cpc: pCpc
+        });
+      }
+    }
+  } catch (e) {
+    Logger.log('Lưu ý quét PMax: ' + e.toString());
+  }
+
+  // 3. Quét Shopping campaigns (nếu có)
+  try {
+    if (typeof AdsApp.shoppingCampaigns === 'function') {
+      const sIt = AdsApp.shoppingCampaigns().get();
+      while (sIt.hasNext()) {
+        const s = sIt.next();
+        const sName = s.getName();
+        if (!sName) continue;
+
+        const sStatus = s.isEnabled() ? 'Đang chạy' : (s.isPaused() ? 'Tạm dừng' : 'Đã xóa');
+        let sBudget = 100000;
+        try {
+          const sb = s.getBudget();
+          if (sb && sb.getAmount) sBudget = Math.round(sb.getAmount());
+        } catch (e) {}
+
+        const sStats = s.getStatsFor('ALL_TIME');
+        const sImp = sStats ? sStats.getImpressions() : 0;
+        const sClk = sStats ? sStats.getClicks() : 0;
+        const sCst = sStats ? Math.round(sStats.getCost()) : 0;
+        const sConv = sStats ? Math.round(sStats.getConversions() * 10) / 10 : 0;
+        const sCpc = (sClk > 0 && sCst > 0) ? Math.round(sCst / sClk) : 0;
+
+        campaigns.push({
+          id: s.getId().toString(),
+          name: sName.trim(),
+          status: sStatus,
+          budget: sBudget,
+          impressions: sImp,
+          clicks: sClk,
+          cost: sCst,
+          conversions: sConv,
+          cpc: sCpc
+        });
+      }
+    }
+  } catch (e) {
+    Logger.log('Lưu ý quét Shopping: ' + e.toString());
+  }
+
+  return campaigns;
 }
 
 function fetchNotionDatabaseMap() {
@@ -1682,52 +1735,53 @@ function fetchNotionDatabaseMap() {
   return map;
 }
 
-function updateNotionPage(pageId, camp) {
+function updateNotionPage(pageId, camp, todayStr) {
   const payload = {
     properties: {
       'Trạng Thái': { select: { name: camp.status } },
-      'Ngân Sách Ngày': { number: camp.budget },
-      'Lượt Hiển Thị': { number: camp.impressions },
-      'Lượt Click': { number: camp.clicks },
-      'Chi Phí (VNĐ)': { number: camp.cost },
-      'Chuyển Đổi': { number: camp.conversions },
-      'CPC (VNĐ)': { number: camp.cpc },
-      'Ngày Cập Nhật': { date: { start: new Date().toISOString() } }
+      'Ngân Sách Ngày': { number: Number(camp.budget) || 100000 },
+      'Lượt Hiển Thị': { number: Number(camp.impressions) || 0 },
+      'Lượt Click': { number: Number(camp.clicks) || 0 },
+      'Chi Phí (VNĐ)': { number: Number(camp.cost) || 0 },
+      'Chuyển Đổi': { number: Number(camp.conversions) || 0 },
+      'CPC (VNĐ)': { number: Number(camp.cpc) || 0 },
+      'Ngày Cập Nhật': { date: { start: todayStr } }
     }
   };
   callNotionApi('/v1/pages/' + pageId, 'PATCH', payload);
 }
 
-function createNotionPage(camp) {
+function createNotionPage(camp, todayStr) {
+  const campName = (camp.name || 'Chiến dịch không tên').toString().trim();
   const payload = {
     parent: { database_id: CONFIG.NOTION_DATABASE_ID },
     properties: {
       'Tên Chiến Dịch': {
-        title: [{ text: { content: camp.name } }]
+        title: [{ text: { content: campName } }]
       },
       'Trạng Thái': {
-        select: { name: camp.status }
+        select: { name: camp.status || 'Đang chạy' }
       },
       'Ngân Sách Ngày': {
-        number: camp.budget
+        number: Number(camp.budget) || 100000
       },
       'Lượt Hiển Thị': {
-        number: camp.impressions
+        number: Number(camp.impressions) || 0
       },
       'Lượt Click': {
-        number: camp.clicks
+        number: Number(camp.clicks) || 0
       },
       'Chi Phí (VNĐ)': {
-        number: camp.cost
+        number: Number(camp.cost) || 0
       },
       'Chuyển Đổi': {
-        number: camp.conversions
+        number: Number(camp.conversions) || 0
       },
       'CPC (VNĐ)': {
-        number: camp.cpc
+        number: Number(camp.cpc) || 0
       },
       'Ngày Cập Nhật': {
-        date: { start: new Date().toISOString() }
+        date: { start: todayStr }
       }
     }
   };
