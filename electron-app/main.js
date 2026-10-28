@@ -1493,24 +1493,28 @@ function getGoogleAdsScriptCode() {
 const CONFIG = {
   NOTION_TOKEN: '${token}',
   NOTION_DATABASE_ID: '${dbId}',
-  DATE_RANGE: 'TODAY', // Các tùy chọn: 'TODAY', 'YESTERDAY', 'LAST_7_DAYS', 'THIS_MONTH'
+  START_DATE: '2022-01-01', // Lấy toàn bộ số liệu lịch sử từ trước đến nay
   CAMPAIGN_PREFIX: '${prefix}'
 };
 
 function main() {
-  Logger.log('🚀 Bắt đầu quét số liệu Google Ads và đồng bộ về Notion...');
+  Logger.log('🚀 Bắt đầu quét số liệu Google Ads (Toàn bộ từ trước đến hiện tại) và đồng bộ về Notion...');
   
   // 1. Lấy danh sách nhiệm vụ/sản phẩm trên Notion
   const notionMap = fetchNotionDatabaseMap();
   Logger.log('📋 Đã tìm thấy ' + Object.keys(notionMap).length + ' dòng dữ liệu trên Notion.');
 
-  // 2. Truy vấn báo cáo hiệu quả chiến dịch từ Google Ads
+  // 2. Xác định mốc thời gian: Từ ngày bắt đầu đến ngày hôm nay
+  const timeZone = AdsApp.currentAccount().getTimeZone();
+  const endDate = Utilities.formatDate(new Date(), timeZone, 'yyyy-MM-dd');
+
+  // 3. Truy vấn báo cáo hiệu quả chiến dịch tích lũy toàn bộ
   const query = 
     "SELECT campaign.id, campaign.name, campaign.status, " +
     "metrics.impressions, metrics.clicks, metrics.cost_micros, " +
     "metrics.conversions, metrics.average_cpc " +
     "FROM campaign " +
-    "WHERE campaign.status != 'REMOVED' AND segments.date DURING " + CONFIG.DATE_RANGE;
+    "WHERE campaign.status != 'REMOVED' AND segments.date BETWEEN '" + CONFIG.START_DATE + "' AND '" + endDate + "'";
 
   const searchResults = AdsApp.search(query);
   let updatedCount = 0;
