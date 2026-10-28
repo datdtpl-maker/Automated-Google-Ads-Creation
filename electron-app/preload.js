@@ -27,5 +27,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     fetchNotionTasks: (filter) => ipcRenderer.invoke('fetch-notion-tasks', filter),
     updateNotionTask: (data) => ipcRenderer.invoke('update-notion-task', data),
     runNotionCampaigns: (params) => ipcRenderer.invoke('run-notion-campaigns', params),
-    syncNotionProducts: () => ipcRenderer.invoke('sync-notion-products')
+    syncNotionProducts: () => ipcRenderer.invoke('sync-notion-products'),
+
+    // AI Trợ lý báo cáo & Google Ads Script
+    askReportingAssistant: (params) => ipcRenderer.invoke('ask-reporting-assistant', params),
+    getGoogleAdsScript: () => ipcRenderer.invoke('get-google-ads-script')
 });

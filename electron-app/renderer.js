@@ -489,6 +489,163 @@ function setupEventListeners() {
     });
   }
 
+  // ========================================================
+  // AI Trợ Lý Báo Cáo Google Ads & Google Ads Script
+  // ========================================================
+  const modalAiReporter = document.getElementById('modal_ai_reporter');
+  const btnOpenAiReporter = document.getElementById('btn_open_ai_reporter');
+  const btnCloseAiReporter = document.getElementById('btn_close_ai_reporter');
+  const btnSendReporterQuestion = document.getElementById('btn_send_reporter_question');
+  const inputReporterQuestion = document.getElementById('input_reporter_question');
+  const aiResponseBox = document.getElementById('ai_response_box');
+
+  function openAiReporterModal() {
+    if (!modalAiReporter) return;
+    
+    // Tính toán số liệu tổng hợp từ danh sách sản phẩm hiện tại
+    let totalCost = 0;
+    let totalClicks = 0;
+    let totalConv = 0;
+
+    notionTasksList.forEach(t => {
+      totalCost += Number(t.cost) || 0;
+      totalClicks += Number(t.clicks) || 0;
+      totalConv += Number(t.conversions) || 0;
+    });
+
+    const avgCpc = totalClicks > 0 ? Math.round(totalCost / totalClicks) : 0;
+
+    const elCost = document.getElementById('rep_total_cost');
+    const elClicks = document.getElementById('rep_total_clicks');
+    const elConv = document.getElementById('rep_total_conv');
+    const elAvgCpc = document.getElementById('rep_avg_cpc');
+
+    if (elCost) elCost.innerText = `${totalCost.toLocaleString('vi-VN')} đ`;
+    if (elClicks) elClicks.innerText = totalClicks.toLocaleString('vi-VN');
+    if (elConv) elConv.innerText = totalConv.toLocaleString('vi-VN');
+    if (elAvgCpc) elAvgCpc.innerText = `${avgCpc.toLocaleString('vi-VN')} đ`;
+
+    modalAiReporter.style.display = 'flex';
+  }
+
+  function closeAiReporterModal() {
+    if (modalAiReporter) modalAiReporter.style.display = 'none';
+  }
+
+  if (btnOpenAiReporter) {
+    btnOpenAiReporter.addEventListener('click', openAiReporterModal);
+  }
+  if (btnCloseAiReporter) {
+    btnCloseAiReporter.addEventListener('click', closeAiReporterModal);
+  }
+
+  async function handleAskAiReporter(questionText) {
+    const q = (questionText || inputReporterQuestion.value || '').trim();
+    if (!q) {
+      showToast('Vui lòng nhập câu hỏi để AI phân tích!', 'error');
+      return;
+    }
+
+    if (btnSendReporterQuestion) btnSendReporterQuestion.disabled = true;
+    aiResponseBox.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 24px; color: var(--text-muted);">
+        <span style="font-size: 20px;">🤖</span>
+        <span style="font-weight: 600;">Gemini AI đang phân tích dữ liệu Google Ads của ${notionTasksList.length} chiến dịch...</span>
+      </div>
+    `;
+
+    try {
+      const res = await window.electronAPI.askReportingAssistant({
+        question: q,
+        tasks: notionTasksList
+      });
+
+      if (res.success && res.analysis) {
+        aiResponseBox.innerHTML = formatAiMarkdown(res.analysis);
+      } else {
+        aiResponseBox.innerHTML = `
+          <div style="color: #dc2626; padding: 12px;">
+            ❌ Lỗi khi phân tích: ${res.error || 'Không nhận được phản hồi từ AI'}
+          </div>
+        `;
+      }
+    } catch (err) {
+      aiResponseBox.innerHTML = `
+        <div style="color: #dc2626; padding: 12px;">
+          ❌ Lỗi ngoại lệ: ${err.message}
+        </div>
+      `;
+    } finally {
+      if (btnSendReporterQuestion) btnSendReporterQuestion.disabled = false;
+    }
+  }
+
+  if (btnSendReporterQuestion) {
+    btnSendReporterQuestion.addEventListener('click', () => handleAskAiReporter());
+  }
+  if (inputReporterQuestion) {
+    inputReporterQuestion.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleAskAiReporter();
+    });
+  }
+
+  // Quick Prompt buttons
+  document.querySelectorAll('.btn-quick-prompt').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const prompt = btn.getAttribute('data-prompt');
+      if (inputReporterQuestion) inputReporterQuestion.value = prompt;
+      handleAskAiReporter(prompt);
+    });
+  });
+
+  // Google Ads Script Modal
+  const modalGoogleAdsScript = document.getElementById('modal_google_ads_script');
+  const btnOpenScriptModal = document.getElementById('btn_open_script_modal');
+  const btnCloseScriptModal = document.getElementById('btn_close_script_modal');
+  const btnCopyScriptCode = document.getElementById('btn_copy_script_code');
+  const textareaGoogleAdsScript = document.getElementById('textarea_google_ads_script');
+
+  if (btnOpenScriptModal) {
+    btnOpenScriptModal.addEventListener('click', async () => {
+      if (!modalGoogleAdsScript) return;
+      modalGoogleAdsScript.style.display = 'flex';
+      const res = await window.electronAPI.getGoogleAdsScript();
+      if (res && res.script && textareaGoogleAdsScript) {
+        textareaGoogleAdsScript.value = res.script;
+      }
+    });
+  }
+  if (btnCloseScriptModal) {
+    btnCloseScriptModal.addEventListener('click', () => {
+      if (modalGoogleAdsScript) modalGoogleAdsScript.style.display = 'none';
+    });
+  }
+  if (btnCopyScriptCode) {
+    btnCopyScriptCode.addEventListener('click', () => {
+      if (textareaGoogleAdsScript && textareaGoogleAdsScript.value) {
+        navigator.clipboard.writeText(textareaGoogleAdsScript.value);
+        showToast('Đã sao chép toàn bộ mã Google Ads Script vào bộ nhớ tạm!', 'success');
+      }
+    });
+  }
+
+  function formatAiMarkdown(text) {
+    if (!text) return '';
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+      .replace(/\*(.*?)\*/g, '<i>$1</i>')
+      .replace(/^### (.*$)/gim, '<div style="font-weight: 700; font-size: 14px; color: #1e1b4b; margin: 10px 0 4px 0;">$1</div>')
+      .replace(/^## (.*$)/gim, '<div style="font-weight: 700; font-size: 15px; color: #1e1b4b; margin: 12px 0 6px 0;">$1</div>')
+      .replace(/^# (.*$)/gim, '<div style="font-weight: 800; font-size: 16px; color: #1e1b4b; margin: 14px 0 8px 0;">$1</div>')
+      .replace(/^\s*[-*]\s+(.*$)/gim, '<div style="display: flex; gap: 6px; margin: 3px 0;"><span style="color: #6366f1;">●</span><span>$1</span></div>')
+      .replace(/^\s*(\d+)\.\s+(.*$)/gim, '<div style="display: flex; gap: 6px; margin: 3px 0;"><b style="color: #4f46e5;">$1.</b><span>$2</span></div>')
+      .replace(/\n\n/g, '<div style="height: 8px;"></div>')
+      .replace(/\n/g, '<br>');
+  }
+
   // Filter tabs / KPI Metric Cards trong Notion Hub
   ['Chờ tạo', 'Đang chạy Google Ads', 'Chưa xử lý', 'Từ chối', 'all'].forEach(st => {
     const cards = document.querySelectorAll(`[data-status="${st}"]`);
@@ -1232,7 +1389,7 @@ async function loadNotionTasks() {
 
   tbody.innerHTML = `
     <tr>
-      <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">
+      <td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
         <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
           <span style="font-size: 24px;">⏳</span>
           <span style="font-weight: 600;">Đang kết nối Notion và quét danh sách sản phẩm...</span>
@@ -1269,7 +1426,7 @@ async function loadNotionTasks() {
     } else {
       tbody.innerHTML = `
         <tr>
-          <td colspan="9" style="text-align: center; padding: 30px; color: #dc2626;">
+          <td colspan="12" style="text-align: center; padding: 30px; color: #dc2626;">
             Lỗi nạp dữ liệu Notion: ${res.error || 'Không kết nối được API'}
           </td>
         </tr>
@@ -1278,7 +1435,7 @@ async function loadNotionTasks() {
   } catch (err) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="9" style="text-align: center; padding: 30px; color: #dc2626;">
+        <td colspan="12" style="text-align: center; padding: 30px; color: #dc2626;">
           Lỗi: ${err.message}
         </td>
       </tr>
@@ -1346,7 +1503,7 @@ function renderNotionTasks() {
       const unprocessedCount = notionTasksList.filter(t => t.status === 'Chưa xử lý').length;
       tbody.innerHTML = `
         <tr>
-          <td colspan="9" style="text-align: center; padding: 48px 20px;">
+          <td colspan="12" style="text-align: center; padding: 48px 20px;">
             <div style="font-size: 32px; margin-bottom: 8px;">⏳</div>
             <div style="font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px;">
               Chưa có sản phẩm nào ở trạng thái "Chờ tạo" trên Notion
@@ -1389,7 +1546,7 @@ function renderNotionTasks() {
     } else {
       tbody.innerHTML = `
         <tr>
-          <td colspan="9" style="text-align: center; padding: 30px; color: var(--text-muted);">
+          <td colspan="12" style="text-align: center; padding: 30px; color: var(--text-muted);">
             Không tìm thấy nhiệm vụ nào phù hợp với bộ lọc hiện tại.
           </td>
         </tr>
@@ -1419,6 +1576,9 @@ function renderNotionTasks() {
     }
 
     const budgetFormatted = task.daily_budget ? `${Number(task.daily_budget).toLocaleString('vi-VN')} đ` : '100.000 đ';
+    const costFormatted = task.cost ? `${Number(task.cost).toLocaleString('vi-VN')} đ` : '0 đ';
+    const clicksFormatted = task.clicks || 0;
+    const convFormatted = task.conversions || 0;
 
     tr.innerHTML = `
       <td style="text-align: center; width: 44px;">
@@ -1437,9 +1597,12 @@ function renderNotionTasks() {
       <td style="white-space: nowrap;">
         <span class="notion-badge ${badgeClass}">● ${task.status}</span>
       </td>
+      <td style="white-space: nowrap; font-weight: 700; color: ${task.cost > 0 ? '#dc2626' : 'var(--text-muted)'};">${costFormatted}</td>
+      <td style="white-space: nowrap; font-weight: 600; color: #0284c7; text-align: center;">${clicksFormatted}</td>
+      <td style="white-space: nowrap; font-weight: 700; color: ${task.conversions > 0 ? '#16a34a' : 'var(--text-muted)'}; text-align: center;">${convFormatted}</td>
       <td style="white-space: nowrap;">
         ${task.csv_file ? `
-          <span style="font-family: var(--font-mono); font-size: 11px; color: #15803d; background: #dcfce7; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; display: inline-block; max-width: 380px; user-select: text;" title="${task.csv_file}">
+          <span style="font-family: var(--font-mono); font-size: 11px; color: #15803d; background: #dcfce7; border: 1px solid #bbf7d0; padding: 2px 8px; border-radius: 4px; display: inline-block; max-width: 320px; user-select: text;" title="${task.csv_file}">
             ${task.csv_file}
           </span>
         ` : `<span style="font-size: 11px; color: var(--text-muted);">Chưa có</span>`}

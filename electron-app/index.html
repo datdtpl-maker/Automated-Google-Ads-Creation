@@ -231,6 +231,16 @@
           </div>
 
           <div class="hub-hero-actions">
+            <button type="button" class="btn-hub-report" id="btn_open_ai_reporter" title="Mở AI Trợ lý báo cáo và phân tích chiến dịch Google Ads">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg>
+              <span>AI Trợ Lý Báo Cáo</span>
+            </button>
+
+            <button type="button" class="btn-hub-script" id="btn_open_script_modal" title="Lấy mã Script Google Ads tự động đồng bộ số liệu về Notion">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+              <span>Lấy Script Google Ads</span>
+            </button>
+
             <button type="button" class="btn-hub-sync" id="btn_sync_web_to_notion" title="Tải sản phẩm mới từ website khaihoanderma.com đẩy lên Notion (chống trùng, không ghi đè)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
               <span>Đồng Bộ SP Mới Từ Web Qua Notion</span>
@@ -321,19 +331,22 @@
             <thead>
               <tr>
                 <th style="width: 44px; min-width: 44px; text-align: center;"><input type="checkbox" id="cb_notion_select_all"></th>
-                <th style="min-width: 320px; white-space: nowrap;">Tên Chiến Dịch / Sản Phẩm</th>
-                <th style="min-width: 130px; white-space: nowrap;">Danh Mục</th>
-                <th style="min-width: 110px; white-space: nowrap;">Giá Bán</th>
-                <th style="min-width: 130px; white-space: nowrap;">Ngân Sách Ngày</th>
-                <th style="min-width: 170px; white-space: nowrap;">Trạng Thái</th>
-                <th style="min-width: 300px; white-space: nowrap;">File CSV</th>
-                <th style="min-width: 120px; white-space: nowrap;">Cập Nhật</th>
-                <th style="min-width: 160px; text-align: center; white-space: nowrap;">Thao Tác</th>
+                <th style="min-width: 280px; white-space: nowrap;">Tên Chiến Dịch / Sản Phẩm</th>
+                <th style="min-width: 120px; white-space: nowrap;">Danh Mục</th>
+                <th style="min-width: 100px; white-space: nowrap;">Giá Bán</th>
+                <th style="min-width: 110px; white-space: nowrap;">Ngân Sách Ngày</th>
+                <th style="min-width: 140px; white-space: nowrap;">Trạng Thái</th>
+                <th style="min-width: 110px; white-space: nowrap;">Chi Phí (VNĐ)</th>
+                <th style="min-width: 80px; white-space: nowrap;">Clicks</th>
+                <th style="min-width: 90px; white-space: nowrap;">Chuyển Đổi</th>
+                <th style="min-width: 260px; white-space: nowrap;">File CSV</th>
+                <th style="min-width: 110px; white-space: nowrap;">Cập Nhật</th>
+                <th style="min-width: 150px; text-align: center; white-space: nowrap;">Thao Tác</th>
               </tr>
             </thead>
             <tbody id="notion_tasks_tbody">
               <tr>
-                <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                <td colspan="12" style="text-align: center; padding: 40px; color: var(--text-muted);">
                   Đang tải dữ liệu từ Notion...
                 </td>
               </tr>
@@ -561,6 +574,120 @@
   </div>
 
 
+
+  <!-- Modal: AI Trợ Lý Báo Cáo Google Ads -->
+  <div class="modal-overlay" id="modal_ai_reporter" style="display: none;">
+    <div class="modal-card modal-large" style="max-width: 880px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color: #fff; padding: 16px 20px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 22px;">📊</span>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: #fff;">AI Trợ Lý Báo Cáo Google Ads (Gemini 3.8 Flash)</h3>
+            <p style="font-size: 11px; color: #c7d2fe; margin: 2px 0 0 0;">Phân tích hiệu suất thời gian thực từ dữ liệu Google Ads đã đồng bộ về Notion</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn_close_ai_reporter" style="color: #fff;">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
+        <!-- 4 KPI Metrics Cards -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+          <div class="reporter-kpi-card">
+            <div class="reporter-kpi-label">Tổng Chi Phí</div>
+            <div class="reporter-kpi-value text-red" id="rep_total_cost">0 đ</div>
+            <div class="reporter-kpi-sub">Hôm nay / Chu kỳ</div>
+          </div>
+          <div class="reporter-kpi-card">
+            <div class="reporter-kpi-label">Lượt Click</div>
+            <div class="reporter-kpi-value text-blue" id="rep_total_clicks">0</div>
+            <div class="reporter-kpi-sub">Lượt truy cập web</div>
+          </div>
+          <div class="reporter-kpi-card">
+            <div class="reporter-kpi-label">Lượt Chuyển Đổi</div>
+            <div class="reporter-kpi-value text-green" id="rep_total_conv">0</div>
+            <div class="reporter-kpi-sub">Thêm giỏ / Đơn hàng</div>
+          </div>
+          <div class="reporter-kpi-card">
+            <div class="reporter-kpi-label">CPC Trung Bình</div>
+            <div class="reporter-kpi-value text-amber" id="rep_avg_cpc">0 đ</div>
+            <div class="reporter-kpi-sub">Chi phí / 1 Click</div>
+          </div>
+        </div>
+
+        <!-- Quick Prompt Buttons -->
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="font-size: 11px; font-weight: 700; color: var(--text-secondary); text-transform: uppercase;">Gợi ý câu hỏi phân tích nhanh:</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            <button type="button" class="btn-quick-prompt" data-prompt="Đánh giá hiệu quả tổng thể các chiến dịch hôm nay và đưa ra nhận xét chuyên gia.">
+              💡 Đánh giá tổng thể hôm nay
+            </button>
+            <button type="button" class="btn-quick-prompt" data-prompt="Liệt kê những chiến dịch/sản phẩm đang tốn tiền mà chưa có chuyển đổi. Có nên tạm dừng không?">
+              ⚠️ Camp tốn tiền chưa ra đơn?
+            </button>
+            <button type="button" class="btn-quick-prompt" data-prompt="Chiến dịch hoặc sản phẩm nào đang hoạt động tốt nhất và có nên tăng ngân sách không?">
+              📈 Camp hiệu quả nên tăng ngân sách?
+            </button>
+            <button type="button" class="btn-quick-prompt" data-prompt="Kiểm tra giá thầu CPC và đề xuất tối ưu ngân sách ngày cho từng nhóm sản phẩm.">
+              🎯 Gợi ý tối ưu CPC & Ngân sách
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat/Ask Input -->
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="input_reporter_question" class="form-input" placeholder="Hỏi AI bất kỳ điều gì về chiến dịch Google Ads của bạn..." style="font-size: 12px; height: 38px;">
+          <button type="button" class="btn-generate" id="btn_send_reporter_question" style="padding: 0 18px; height: 38px; flex-shrink: 0;">
+            <span>Phân Tích AI</span>
+          </button>
+        </div>
+
+        <!-- AI Response Area -->
+        <div class="ai-response-box" id="ai_response_box">
+          <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px;">
+            Bấm một câu hỏi gợi ý bên trên hoặc nhập câu hỏi để Gemini AI phân tích dữ liệu Google Ads cho bạn.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Google Ads Script Sync -->
+  <div class="modal-overlay" id="modal_google_ads_script" style="display: none;">
+    <div class="modal-card modal-large" style="max-width: 820px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="modal-header" style="background: linear-gradient(135deg, #065f46 0%, #047857 100%); color: #fff; padding: 16px 20px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 22px;">📜</span>
+          <div>
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0; color: #fff;">Google Ads Script Tự Động Đồng Bộ Dữ Liệu Về Notion</h3>
+            <p style="font-size: 11px; color: #a7f3d0; margin: 2px 0 0 0;">Chỉ cần dán 1 lần vào tài khoản Google Ads - Tự động cập nhật Chi phí, Clicks, Chuyển đổi mỗi ngày</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" id="btn_close_script_modal" style="color: #fff;">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 18px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px;">
+        <!-- 4 Quick Steps -->
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; font-size: 12px; color: #166534; line-height: 1.6;">
+          <b>Hướng dẫn cài đặt trong 1 phút:</b><br>
+          1. Bấm nút <b>"📋 Sao Chép Toàn Bộ Mã Script"</b> bên dưới.<br>
+          2. Mở tài khoản Google Ads $\rightarrow$ Bấm <b>"Công cụ và cài đặt"</b> (Tools & Settings) $\rightarrow$ Chọn <b>"Tập lệnh"</b> (Scripts).<br>
+          3. Bấm dấu <b>[+]</b> để tạo Tập lệnh mới $\rightarrow$ Xóa code cũ và dán toàn bộ đoạn mã này vào $\rightarrow$ Bấm <b>"Ủy quyền"</b> (Authorize) $\rightarrow$ Bấm <b>"Chạy"</b> (Run).<br>
+          4. Tại danh sách tập lệnh, đặt <b>Tần suất chạy: Hàng ngày lúc 23:00</b> (hoặc Hàng giờ). Toàn bộ số liệu sẽ tự động đẩy về Notion và hiển thị trong tool.
+        </div>
+
+        <!-- Copy Button -->
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 12px; font-weight: 600; color: var(--text-primary);">Mã nguồn Google Ads Script:</span>
+          <button type="button" class="btn-hub-sync" id="btn_copy_script_code" style="padding: 6px 14px; font-size: 12px;">
+            📋 Sao Chép Toàn Bộ Mã Script
+          </button>
+        </div>
+
+        <!-- Script Textarea / Code Box -->
+        <textarea id="textarea_google_ads_script" readonly style="width: 100%; height: 320px; font-family: var(--font-mono); font-size: 11px; line-height: 1.5; background: #0f172a; color: #f8fafc; border-radius: 8px; padding: 12px; border: 1px solid #334155; resize: none; user-select: text;"></textarea>
+      </div>
+    </div>
+  </div>
 
   <!-- Toast Notifications Container -->
   <div class="toast-container" id="toast_container"></div>
