@@ -325,6 +325,31 @@
           </div>
         </div>
 
+        <!-- Real-time Execution Progress Card (Đặt ngay dưới thanh điều khiển, thoáng đãng, dễ theo dõi) -->
+        <div class="progress-card" id="process_progress_card" style="display: none;">
+          <div class="progress-card-header">
+            <div class="progress-status-info">
+              <span class="progress-spinner-icon" id="progress_spinner"></span>
+              <div class="progress-text-group">
+                <span class="progress-main-status" id="progress_main_status">Đang khởi động tiến trình...</span>
+                <span class="progress-detail-status" id="progress_detail_status">Đang chuẩn bị thông tin sản phẩm...</span>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div class="progress-percentage-badge" id="progress_percentage">0%</div>
+              <button type="button" class="btn-close-progress" id="btn_close_progress_card" title="Đóng thanh tiến trình">✕</button>
+            </div>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress_fill" style="width: 0%;"></div>
+          </div>
+          <div class="progress-steps-row">
+            <span class="progress-step-item" id="step_ai">1. Gemini AI tạo nội dung</span>
+            <span class="progress-step-item" id="step_img">2. Tải ảnh sản phẩm</span>
+            <span class="progress-step-item" id="step_csv">3. Xuất file CSV Master</span>
+          </div>
+        </div>
+
         <!-- Big Data Table -->
         <div class="notion-table-container">
           <table class="notion-table">
@@ -362,28 +387,6 @@
           </div>
         </div>
       </section>
-
-      <!-- Real-time Execution Progress Card -->
-      <div class="progress-card" id="process_progress_card" style="display: none;">
-        <div class="progress-card-header">
-          <div class="progress-status-info">
-            <span class="progress-spinner-icon" id="progress_spinner"></span>
-            <div class="progress-text-group">
-              <span class="progress-main-status" id="progress_main_status">Đang khởi động tiến trình...</span>
-              <span class="progress-detail-status" id="progress_detail_status">Đang chuẩn bị thông tin sản phẩm...</span>
-            </div>
-          </div>
-          <div class="progress-percentage-badge" id="progress_percentage">0%</div>
-        </div>
-        <div class="progress-track">
-          <div class="progress-fill" id="progress_fill" style="width: 0%;"></div>
-        </div>
-        <div class="progress-steps-row">
-          <span class="progress-step-item" id="step_ai">1. Gemini AI tạo nội dung</span>
-          <span class="progress-step-item" id="step_img">2. Tải ảnh sản phẩm</span>
-          <span class="progress-step-item" id="step_csv">3. Xuất file CSV Master</span>
-        </div>
-      </div>
 
       <!-- 4. Terminal Progress Box -->
       <div class="terminal-box" id="terminal_box">

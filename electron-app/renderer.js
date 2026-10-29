@@ -775,6 +775,15 @@ function setupEventListeners() {
     btnExecuteNotion.addEventListener('click', executeNotionCampaignsFlow);
   }
 
+  // Nút đóng thanh tiến trình
+  const btnCloseProg = document.getElementById('btn_close_progress_card');
+  if (btnCloseProg) {
+    btnCloseProg.addEventListener('click', () => {
+      const pc = document.getElementById('process_progress_card');
+      if (pc) pc.style.display = 'none';
+    });
+  }
+
 
 
   // Nút xóa tất cả sản phẩm hàng loạt
@@ -1812,7 +1821,10 @@ async function executeNotionCampaignsFlow() {
   const progressDetailStatus = document.getElementById('progress_detail_status');
   const resultsSection = document.getElementById('results_section');
 
-  if (progressCard) progressCard.style.display = 'block';
+  if (progressCard) {
+    progressCard.style.display = 'flex';
+    progressCard.classList.remove('completed');
+  }
   if (resultsSection) resultsSection.style.display = 'none';
 
   progressFill.style.width = '5%';
@@ -1851,6 +1863,7 @@ async function executeNotionCampaignsFlow() {
         if (stepAi) stepAi.className = 'progress-step-item done';
         if (stepImg) stepImg.className = 'progress-step-item done';
         if (stepCsv) stepCsv.className = 'progress-step-item done';
+        if (progressCard) progressCard.classList.add('completed');
       }
 
       updateTerminal(`● ${data.message}`);
@@ -1866,10 +1879,18 @@ async function executeNotionCampaignsFlow() {
     });
 
     if (res.success) {
+      if (progressCard) progressCard.classList.add('completed');
       progressFill.style.width = '100%';
       progressPercent.innerText = '100%';
       progressMainStatus.innerText = '✓ Đã tạo xong toàn bộ chiến dịch và cập nhật Notion!';
       progressDetailStatus.innerText = `Đã xuất ${res.successful_products} file CSV riêng biệt cho từng sản phẩm!`;
+
+      const stepAi = document.getElementById('step_ai');
+      const stepImg = document.getElementById('step_img');
+      const stepCsv = document.getElementById('step_csv');
+      if (stepAi) stepAi.className = 'progress-step-item done';
+      if (stepImg) stepImg.className = 'progress-step-item done';
+      if (stepCsv) stepCsv.className = 'progress-step-item done';
 
       showToast(`Xuất thành công ${res.successful_products} file CSV riêng biệt & cập nhật Notion!`, 'success');
       updateTerminal(`✓ Hoàn tất! Đã xuất ${res.successful_products} file CSV riêng (mỗi SP 1 chiến dịch). Notion đã cập nhật "Đang chạy Google Ads" kèm tên file tương ứng.`);
