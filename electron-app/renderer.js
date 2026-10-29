@@ -896,193 +896,41 @@ function setupEventListeners() {
     }
   }
 
-  searchInput.addEventListener('input', (e) => {
-    clearTimeout(searchDebounceTimer);
-    const query = e.target.value.trim();
-    if (query.length === 0) {
-      searchDropdown.style.display = 'none';
-      return;
-    }
-    // Tìm kiếm tức thì trong bộ nhớ local chỉ cần delay 40ms
-    searchDebounceTimer = setTimeout(() => {
-      performSearch(query);
-    }, 40);
-  });
-
-  searchInput.addEventListener('focus', () => {
-    const query = searchInput.value.trim();
-    if (query.length > 0) {
-      performSearch(query);
-    }
-  });
-
-  // Đóng dropdown khi bấm ra ngoài
-  document.addEventListener('click', (e) => {
-    if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
-      searchDropdown.style.display = 'none';
-    }
-  });
-
-  // Nút tạo chiến dịch
-  document.getElementById('btn_generate_campaign').addEventListener('click', generateCampaign);
-
-  // Hàm chuyển tab kết quả an toàn và đồng bộ
-  function switchResultTab(tabId) {
-    if (!tabId) return;
-
-    const tabs = document.querySelectorAll('.nav-tab');
-    const panes = document.querySelectorAll('.tab-pane');
-
-    tabs.forEach(t => {
-      const isTarget = t.getAttribute('data-tab') === tabId;
-      t.classList.toggle('active', isTarget);
+  if (searchInput && searchDropdown) {
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(searchDebounceTimer);
+      const query = e.target.value.trim();
+      if (query.length === 0) {
+        searchDropdown.style.display = 'none';
+        return;
+      }
+      searchDebounceTimer = setTimeout(() => {
+        performSearch(query);
+      }, 40);
     });
 
-    panes.forEach(p => {
-      const isTarget = p.id === tabId;
-      p.classList.toggle('active', isTarget);
+    searchInput.addEventListener('focus', () => {
+      const query = searchInput.value.trim();
+      if (query.length > 0) {
+        performSearch(query);
+      }
     });
 
-    // Đồng bộ trạng thái thẻ chip trong Progress Card
-    const stepAi = document.getElementById('step_ai');
-    const stepImg = document.getElementById('step_img');
-    const stepCsv = document.getElementById('step_csv');
-
-    if (stepAi && stepImg && stepCsv) {
-      stepAi.classList.toggle('active', ['tab_preview', 'tab_headlines', 'tab_descriptions', 'tab_keywords'].includes(tabId));
-      stepImg.classList.toggle('active', tabId === 'tab_images');
-      stepCsv.classList.toggle('active', tabId === 'tab_csv');
-    }
-  }
-
-  // Tab switching qua thanh điều hướng
-  const tabs = document.querySelectorAll('.nav-tab');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', (e) => {
-      e.preventDefault();
-      const targetId = tab.getAttribute('data-tab');
-      switchResultTab(targetId);
-    });
-  });
-
-  // Event delegation cho results-nav phòng trường hợp icon/text con bị bấm
-  const resultsNav = document.querySelector('.results-nav');
-  if (resultsNav) {
-    resultsNav.addEventListener('click', (e) => {
-      const tabBtn = e.target.closest('.nav-tab');
-      if (tabBtn) {
-        e.preventDefault();
-        const targetId = tabBtn.getAttribute('data-tab');
-        switchResultTab(targetId);
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+        searchDropdown.style.display = 'none';
       }
     });
   }
 
-  // Cho phép bấm trực tiếp vào các ô tiến trình để chuyển tab kiểm tra nhanh
-  const stepAiEl = document.getElementById('step_ai');
-  const stepImgEl = document.getElementById('step_img');
-  const stepCsvEl = document.getElementById('step_csv');
-
-  if (stepAiEl) {
-    stepAiEl.title = 'Bấm để kiểm tra Tiêu đề, Mô tả & Từ khóa AI';
-    stepAiEl.addEventListener('click', () => switchResultTab('tab_headlines'));
-  }
-  if (stepImgEl) {
-    stepImgEl.title = 'Bấm để kiểm tra Ảnh đã tải về';
-    stepImgEl.addEventListener('click', () => switchResultTab('tab_images'));
-  }
-  if (stepCsvEl) {
-    stepCsvEl.title = 'Bấm để kiểm tra File CSV đã xuất';
-    stepCsvEl.addEventListener('click', () => switchResultTab('tab_csv'));
+  // Nút tạo chiến dịch đơn lẻ
+  const btnGenCampaign = document.getElementById('btn_generate_campaign');
+  if (btnGenCampaign) {
+    btnGenCampaign.addEventListener('click', generateCampaign);
   }
 
-  // Nút mở thư mục ảnh sản phẩm hiện tại
-  document.getElementById('btn_open_current_product_images').addEventListener('click', async () => {
-    if (lastGeneratedResult && lastGeneratedResult.images_folder) {
-      await window.electronAPI.openFolder(lastGeneratedResult.images_folder);
-    }
-  });
-
-  // Nút hiển thị file CSV trong Windows Explorer
-  document.getElementById('btn_show_csv_in_folder').addEventListener('click', async () => {
-    if (lastGeneratedResult && lastGeneratedResult.output_dir) {
-      await window.electronAPI.openFolder(lastGeneratedResult.output_dir);
-    } else if (lastGeneratedResult && lastGeneratedResult.csv_file_path) {
-      await window.electronAPI.showItemInFolder(lastGeneratedResult.csv_file_path);
-    }
-  });
-
-  // Nút sao chép đường dẫn thư mục ảnh
-  const btnCopyImgPath = document.getElementById('btn_copy_product_images_path');
-  if (btnCopyImgPath) {
-    btnCopyImgPath.addEventListener('click', () => {
-      if (lastGeneratedResult && lastGeneratedResult.images_folder) {
-        navigator.clipboard.writeText(lastGeneratedResult.images_folder);
-        showToast('Đã sao chép đường dẫn thư mục ảnh vào Clipboard!', 'success');
-      }
-    });
-  }
-
-  // Nút sao chép đường dẫn file CSV
-  const btnCopyCsvPath = document.getElementById('btn_copy_csv_file_path');
-  if (btnCopyCsvPath) {
-    btnCopyCsvPath.addEventListener('click', () => {
-      if (lastGeneratedResult && lastGeneratedResult.csv_file_path) {
-        navigator.clipboard.writeText(lastGeneratedResult.csv_file_path);
-        showToast('Đã sao chép đường dẫn file CSV! (Bấm Ctrl+V tại ô File Name để chọn file)', 'success');
-      }
-    });
-  }
-
-  // Nút sao chép đường dẫn thư mục chứa CSV
-  const btnCopyCsvFolder = document.getElementById('btn_copy_csv_folder_path');
-  if (btnCopyCsvFolder) {
-    btnCopyCsvFolder.addEventListener('click', () => {
-      if (lastGeneratedResult && lastGeneratedResult.output_dir) {
-        navigator.clipboard.writeText(lastGeneratedResult.output_dir);
-        showToast('Đã sao chép đường dẫn thư mục chứa file CSV!', 'success');
-      }
-    });
-  }
-
-  // Nút sao chép nội dung văn bản
-  document.getElementById('btn_copy_all_headlines').addEventListener('click', () => {
-    if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
-    const text = lastGeneratedResult.ad_data.headlines.join('\n');
-    navigator.clipboard.writeText(text);
-    showToast('Đã sao chép 15 tiêu đề vào Clipboard!', 'success');
-  });
-
-  document.getElementById('btn_copy_all_descriptions').addEventListener('click', () => {
-    if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
-    const text = lastGeneratedResult.ad_data.descriptions.join('\n');
-    navigator.clipboard.writeText(text);
-    showToast('Đã sao chép 4 mô tả vào Clipboard!', 'success');
-  });
-
-  document.getElementById('btn_copy_all_keywords').addEventListener('click', () => {
-    if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
-    const text = lastGeneratedResult.ad_data.keywords.join('\n');
-    navigator.clipboard.writeText(text);
-    showToast('Đã sao chép danh sách từ khóa vào Clipboard!', 'success');
-  });
-
-  const copyAdTextBtn = document.getElementById('btn_copy_all_ad_text');
-  if (copyAdTextBtn) {
-    copyAdTextBtn.addEventListener('click', () => {
-      if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
-      const ad = lastGeneratedResult.ad_data;
-      let text = `=== CHIẾN DỊCH: ${ad.campaign_name} ===\n`;
-      text += `Nhóm quảng cáo: ${ad.ad_group_name}\n`;
-      text += `URL Đích: ${ad.final_url}\n`;
-      text += `Đường dẫn: /${ad.path1}/${ad.path2}\n\n`;
-      text += `TIÊU ĐỀ (15):\n` + ad.headlines.map((h, i) => `${i + 1}. [${h.length} ký tự] ${h}`).join('\n') + `\n\n`;
-      text += `MÔ TẢ (4):\n` + ad.descriptions.map((d, i) => `${i + 1}. [${d.length} ký tự] ${d}`).join('\n') + `\n\n`;
-      text += `TỪ KHÓA:\n` + ad.keywords.join('\n');
-      navigator.clipboard.writeText(text);
-      showToast('Đã sao chép toàn bộ văn bản chiến dịch!', 'success');
-    });
-  }
+  // Khởi tạo các sự kiện kết quả và Tab (Luôn chạy an toàn 100%)
+  initResultsTabEvents();
 }
 
 // 5. Thực thi Tạo Chiến Dịch (Hàng loạt hoặc Đơn lẻ)
@@ -1204,25 +1052,199 @@ async function generateCampaign() {
   }
 }
 
-// 6. Hiển thị kết quả ra giao diện
-function renderResults(data) {
-  const resultsSection = document.getElementById('results_section');
-  resultsSection.style.display = 'flex';
+// ========================================================
+// TOÀN CỤC: HÀM ĐIỀU HƯỚNG TAB & KHỞI TẠO SỰ KIỆN KẾT QUẢ
+// ========================================================
 
-  const ad = data.ad_data || (data.products_results && data.products_results[0]?.adData);
+// Hàm chuyển tab kết quả chuẩn xác 100%
+function switchResultTab(tabId) {
+  if (!tabId) return;
+
+  const tabs = document.querySelectorAll('.nav-tab');
+  const panes = document.querySelectorAll('.tab-pane');
+
+  tabs.forEach(t => {
+    const isTarget = t.getAttribute('data-tab') === tabId;
+    t.classList.toggle('active', isTarget);
+  });
+
+  panes.forEach(p => {
+    const isTarget = p.id === tabId;
+    p.classList.toggle('active', isTarget);
+  });
+
+  // Đồng bộ trạng thái thẻ chip trong Progress Card
+  const stepAi = document.getElementById('step_ai');
+  const stepImg = document.getElementById('step_img');
+  const stepCsv = document.getElementById('step_csv');
+
+  if (stepAi && stepImg && stepCsv) {
+    stepAi.classList.toggle('active', ['tab_preview', 'tab_headlines', 'tab_descriptions', 'tab_keywords'].includes(tabId));
+    stepImg.classList.toggle('active', tabId === 'tab_images');
+    stepCsv.classList.toggle('active', tabId === 'tab_csv');
+  }
+}
+
+// Khởi tạo các sự kiện click Tab và nút phụ trợ trong results-section
+function initResultsTabEvents() {
+  // 1. Tab switching qua thanh điều hướng .nav-tab
+  const tabs = document.querySelectorAll('.nav-tab');
+  tabs.forEach(tab => {
+    tab.onclick = (e) => {
+      e.preventDefault();
+      const targetId = tab.getAttribute('data-tab');
+      switchResultTab(targetId);
+    };
+  });
+
+  // 2. Event delegation cho results-nav phòng trường hợp icon/text con bị bấm
+  const resultsNav = document.querySelector('.results-nav');
+  if (resultsNav) {
+    resultsNav.onclick = (e) => {
+      const tabBtn = e.target.closest('.nav-tab');
+      if (tabBtn) {
+        e.preventDefault();
+        const targetId = tabBtn.getAttribute('data-tab');
+        switchResultTab(targetId);
+      }
+    };
+  }
+
+  // 3. Cho phép bấm trực tiếp vào các ô chip tiến trình để chuyển tab kiểm tra nhanh
+  const stepAiEl = document.getElementById('step_ai');
+  const stepImgEl = document.getElementById('step_img');
+  const stepCsvEl = document.getElementById('step_csv');
+
+  if (stepAiEl) {
+    stepAiEl.title = 'Bấm để kiểm tra Tiêu đề, Mô tả & Từ khóa AI';
+    stepAiEl.onclick = () => switchResultTab('tab_headlines');
+  }
+  if (stepImgEl) {
+    stepImgEl.title = 'Bấm để kiểm tra Ảnh đã tải về';
+    stepImgEl.onclick = () => switchResultTab('tab_images');
+  }
+  if (stepCsvEl) {
+    stepCsvEl.title = 'Bấm để kiểm tra File CSV đã xuất';
+    stepCsvEl.onclick = () => switchResultTab('tab_csv');
+  }
+
+  // 4. Các nút thao tác thư mục & sao chép
+  const btnOpenCurImg = document.getElementById('btn_open_current_product_images');
+  if (btnOpenCurImg) {
+    btnOpenCurImg.onclick = async () => {
+      if (lastGeneratedResult && lastGeneratedResult.images_folder) {
+        await window.electronAPI.openFolder(lastGeneratedResult.images_folder);
+      }
+    };
+  }
+
+  const btnShowCsv = document.getElementById('btn_show_csv_in_folder');
+  if (btnShowCsv) {
+    btnShowCsv.onclick = async () => {
+      if (lastGeneratedResult && lastGeneratedResult.output_dir) {
+        await window.electronAPI.openFolder(lastGeneratedResult.output_dir);
+      } else if (lastGeneratedResult && lastGeneratedResult.csv_file_path) {
+        await window.electronAPI.showItemInFolder(lastGeneratedResult.csv_file_path);
+      }
+    };
+  }
+
+  const btnCopyImgPath = document.getElementById('btn_copy_product_images_path');
+  if (btnCopyImgPath) {
+    btnCopyImgPath.onclick = () => {
+      if (lastGeneratedResult && lastGeneratedResult.images_folder) {
+        navigator.clipboard.writeText(lastGeneratedResult.images_folder);
+        showToast('Đã sao chép đường dẫn thư mục ảnh vào Clipboard!', 'success');
+      }
+    };
+  }
+
+  const btnCopyCsvPath = document.getElementById('btn_copy_csv_file_path');
+  if (btnCopyCsvPath) {
+    btnCopyCsvPath.onclick = () => {
+      if (lastGeneratedResult && lastGeneratedResult.csv_file_path) {
+        navigator.clipboard.writeText(lastGeneratedResult.csv_file_path);
+        showToast('Đã sao chép đường dẫn file CSV! (Bấm Ctrl+V tại ô File Name để chọn file)', 'success');
+      }
+    };
+  }
+
+  const btnCopyCsvFolder = document.getElementById('btn_copy_csv_folder_path');
+  if (btnCopyCsvFolder) {
+    btnCopyCsvFolder.onclick = () => {
+      if (lastGeneratedResult && lastGeneratedResult.output_dir) {
+        navigator.clipboard.writeText(lastGeneratedResult.output_dir);
+        showToast('Đã sao chép đường dẫn thư mục chứa file CSV!', 'success');
+      }
+    };
+  }
+
+  const btnCopyHeadlines = document.getElementById('btn_copy_all_headlines');
+  if (btnCopyHeadlines) {
+    btnCopyHeadlines.onclick = () => {
+      if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
+      const text = (lastGeneratedResult.ad_data.headlines || []).join('\n');
+      navigator.clipboard.writeText(text);
+      showToast('Đã sao chép 15 tiêu đề vào Clipboard!', 'success');
+    };
+  }
+
+  const btnCopyDescs = document.getElementById('btn_copy_all_descriptions');
+  if (btnCopyDescs) {
+    btnCopyDescs.onclick = () => {
+      if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
+      const text = (lastGeneratedResult.ad_data.descriptions || []).join('\n');
+      navigator.clipboard.writeText(text);
+      showToast('Đã sao chép 4 mô tả vào Clipboard!', 'success');
+    };
+  }
+
+  const btnCopyKws = document.getElementById('btn_copy_all_keywords');
+  if (btnCopyKws) {
+    btnCopyKws.onclick = () => {
+      if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
+      const text = (lastGeneratedResult.ad_data.keywords || []).join('\n');
+      navigator.clipboard.writeText(text);
+      showToast('Đã sao chép danh sách từ khóa vào Clipboard!', 'success');
+    };
+  }
+
+  const copyAdTextBtn = document.getElementById('btn_copy_all_ad_text');
+  if (copyAdTextBtn) {
+    copyAdTextBtn.onclick = () => {
+      if (!lastGeneratedResult || !lastGeneratedResult.ad_data) return;
+      const ad = lastGeneratedResult.ad_data;
+      let text = `=== CHIẾN DỊCH: ${ad.campaign_name || ''} ===\n`;
+      text += `Nhóm quảng cáo: ${ad.ad_group_name || ''}\n`;
+      text += `URL Đích: ${ad.final_url || ''}\n`;
+      text += `Đường dẫn: /${ad.path1 || 'chinh-hang'}/${ad.path2 || 'gia-tot'}\n\n`;
+      text += `TIÊU ĐỀ (15):\n` + (ad.headlines || []).map((h, i) => `${i + 1}. [${h.length} ký tự] ${h}`).join('\n') + `\n\n`;
+      text += `MÔ TẢ (4):\n` + (ad.descriptions || []).map((d, i) => `${i + 1}. [${d.length} ký tự] ${d}`).join('\n') + `\n\n`;
+      text += `TỪ KHÓA:\n` + (ad.keywords || []).join('\n');
+      navigator.clipboard.writeText(text);
+      showToast('Đã sao chép toàn bộ văn bản chiến dịch!', 'success');
+    };
+  }
+}
+
+// 6. Hiển thị chi tiết nội dung Quảng Cáo của 1 sản phẩm cụ thể
+function renderProductAdData(ad, data) {
   if (!ad) return;
 
   // 1. Mockup Tab
-  const domain = (ad.final_url.match(/^(?:https?:\/\/)?([^\/]+)/i) || ['', 'khaihoanderma.com'])[1];
+  const domain = (ad.final_url?.match(/^(?:https?:\/\/)?([^\/]+)/i) || ['', 'khaihoanderma.com'])[1];
   const mockBusName = document.getElementById('mock_business_name');
   if (mockBusName) mockBusName.innerText = 'Khải Hoàn Derma';
-  document.getElementById('mock_display_url').innerText = `https://${domain}/${ad.path1}/${ad.path2}`;
-  document.getElementById('mock_headline').innerText = `${ad.headlines[0] || ''} | ${ad.headlines[1] || ''} | ${ad.headlines[2] || ''}`;
-  document.getElementById('mock_description').innerText = ad.descriptions[0] || '';
+  const mockDisplayUrl = document.getElementById('mock_display_url');
+  if (mockDisplayUrl) mockDisplayUrl.innerText = `https://${domain}/${ad.path1 || 'chinh-hang'}/${ad.path2 || 'gia-tot'}`;
+  const mockHeadline = document.getElementById('mock_headline');
+  if (mockHeadline) mockHeadline.innerText = `${ad.headlines?.[0] || ''} | ${ad.headlines?.[1] || ''} | ${ad.headlines?.[2] || ''}`;
+  const mockDesc = document.getElementById('mock_description');
+  if (mockDesc) mockDesc.innerText = ad.descriptions?.[0] || '';
 
-  // Cập nhật các liên kết trang web (Sitelinks) trong Mockup
+  // Sitelinks
   const sitelinksContainer = document.getElementById('mock_sitelinks_grid');
-  if (sitelinksContainer && data.sitelinks && data.sitelinks.length > 0) {
+  if (sitelinksContainer && data?.sitelinks && data.sitelinks.length > 0) {
     sitelinksContainer.innerHTML = '';
     data.sitelinks.forEach(st => {
       const box = document.createElement('div');
@@ -1237,110 +1259,163 @@ function renderResults(data) {
 
   // 2. Headlines Grid
   const gridH = document.getElementById('grid_headlines');
-  gridH.innerHTML = '';
-  ad.headlines.forEach((h, i) => {
-    const card = document.createElement('div');
-    card.className = 'asset-card';
-    const badgeClass = h.length <= 28 ? 'safe' : 'warn';
-    card.innerHTML = `
-      <span class="asset-text"><b>${i + 1}.</b> ${h}</span>
-      <div class="asset-meta">
-        <span class="char-badge ${badgeClass}">${h.length}/30</span>
-        <button class="btn-copy-asset" title="Sao chép tiêu đề này">📋</button>
-      </div>
-    `;
-    card.querySelector('.btn-copy-asset').addEventListener('click', () => {
-      navigator.clipboard.writeText(h);
-      showToast(`Đã chép: "${h}"`, 'success');
+  if (gridH && ad.headlines) {
+    gridH.innerHTML = '';
+    ad.headlines.forEach((h, i) => {
+      const card = document.createElement('div');
+      card.className = 'asset-card';
+      const badgeClass = h.length <= 28 ? 'safe' : 'warn';
+      card.innerHTML = `
+        <span class="asset-text"><b>${i + 1}.</b> ${h}</span>
+        <div class="asset-meta">
+          <span class="char-badge ${badgeClass}">${h.length}/30</span>
+          <button class="btn-copy-asset" title="Sao chép tiêu đề này">📋</button>
+        </div>
+      `;
+      card.querySelector('.btn-copy-asset').addEventListener('click', () => {
+        navigator.clipboard.writeText(h);
+        showToast(`Đã chép: "${h}"`, 'success');
+      });
+      gridH.appendChild(card);
     });
-    gridH.appendChild(card);
-  });
+  }
 
   // 3. Descriptions Grid
   const gridD = document.getElementById('grid_descriptions');
-  gridD.innerHTML = '';
-  ad.descriptions.forEach((d, i) => {
-    const card = document.createElement('div');
-    card.className = 'asset-card';
-    const badgeClass = d.length <= 85 ? 'safe' : 'warn';
-    card.innerHTML = `
-      <span class="asset-text"><b>${i + 1}.</b> ${d}</span>
-      <div class="asset-meta">
-        <span class="char-badge ${badgeClass}">${d.length}/90</span>
-        <button class="btn-copy-asset" title="Sao chép mô tả này">📋</button>
-      </div>
-    `;
-    card.querySelector('.btn-copy-asset').addEventListener('click', () => {
-      navigator.clipboard.writeText(d);
-      showToast(`Đã chép đoạn mô tả ${i + 1}`, 'success');
+  if (gridD && ad.descriptions) {
+    gridD.innerHTML = '';
+    ad.descriptions.forEach((d, i) => {
+      const card = document.createElement('div');
+      card.className = 'asset-card';
+      const badgeClass = d.length <= 85 ? 'safe' : 'warn';
+      card.innerHTML = `
+        <span class="asset-text"><b>${i + 1}.</b> ${d}</span>
+        <div class="asset-meta">
+          <span class="char-badge ${badgeClass}">${d.length}/90</span>
+          <button class="btn-copy-asset" title="Sao chép mô tả này">📋</button>
+        </div>
+      `;
+      card.querySelector('.btn-copy-asset').addEventListener('click', () => {
+        navigator.clipboard.writeText(d);
+        showToast(`Đã chép đoạn mô tả ${i + 1}`, 'success');
+      });
+      gridD.appendChild(card);
     });
-    gridD.appendChild(card);
-  });
+  }
 
   // 4. Keywords Grid
   const gridK = document.getElementById('grid_keywords');
-  gridK.innerHTML = '';
-  ad.keywords.forEach((k, i) => {
-    const card = document.createElement('div');
-    card.className = 'asset-card';
-    const isExact = k.startsWith('[') && k.endsWith(']');
-    const typeLabel = isExact ? 'Chính xác [ ]' : 'Cụm từ " "';
-    const badgeClass = isExact ? 'safe' : 'warn';
-    card.innerHTML = `
-      <span class="asset-text"><b>${i + 1}.</b> ${k}</span>
-      <div class="asset-meta">
-        <span class="char-badge ${badgeClass}">${typeLabel}</span>
-        <button class="btn-copy-asset" title="Sao chép từ khóa">📋</button>
-      </div>
-    `;
-    card.querySelector('.btn-copy-asset').addEventListener('click', () => {
-      navigator.clipboard.writeText(k);
-      showToast(`Đã chép từ khóa: ${k}`, 'success');
+  if (gridK && ad.keywords) {
+    gridK.innerHTML = '';
+    ad.keywords.forEach((k, i) => {
+      const card = document.createElement('div');
+      card.className = 'asset-card';
+      const isExact = k.startsWith('[') && k.endsWith(']');
+      const typeLabel = isExact ? 'Chính xác [ ]' : 'Cụm từ " "';
+      const badgeClass = isExact ? 'safe' : 'warn';
+      card.innerHTML = `
+        <span class="asset-text"><b>${i + 1}.</b> ${k}</span>
+        <div class="asset-meta">
+          <span class="char-badge ${badgeClass}">${typeLabel}</span>
+          <button class="btn-copy-asset" title="Sao chép từ khóa">📋</button>
+        </div>
+      `;
+      card.querySelector('.btn-copy-asset').addEventListener('click', () => {
+        navigator.clipboard.writeText(k);
+        showToast(`Đã chép từ khóa: ${k}`, 'success');
+      });
+      gridK.appendChild(card);
     });
-    gridK.appendChild(card);
-  });
+  }
+}
+
+// 7. Hiển thị toàn bộ kết quả ra giao diện & hỗ trợ chuyển đổi giữa nhiều sản phẩm
+function renderResults(data) {
+  const resultsSection = document.getElementById('results_section');
+  if (resultsSection) resultsSection.style.display = 'flex';
+
+  lastGeneratedResult = data;
+
+  const productsList = (data.products_results && data.products_results.length > 0)
+    ? data.products_results
+    : (data.ad_data ? [{ adData: data.ad_data, shortName: data.ad_data.product_short_name || 'Sản phẩm', csv_file_name: data.csv_file_name, csv_file_path: data.csv_file_path }] : []);
+
+  const selectorBar = document.getElementById('product_selector_bar');
+  const selectProd = document.getElementById('select_preview_product');
+  const badgeSummary = document.getElementById('batch_summary_badge');
+
+  if (productsList.length > 1) {
+    if (selectorBar) selectorBar.style.display = 'flex';
+    if (badgeSummary) badgeSummary.innerText = `Đã xuất ${productsList.length} Chiến Dịch & ${productsList.length} File CSV riêng`;
+    if (selectProd) {
+      selectProd.innerHTML = '';
+      productsList.forEach((pr, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        const pName = pr.shortName || pr.adData?.product_short_name || ('Sản phẩm ' + (idx + 1));
+        opt.innerText = `${idx + 1}. ${pName} (${pr.csv_file_name || 'CSV'})`;
+        selectProd.appendChild(opt);
+      });
+      selectProd.onchange = (e) => {
+        const chosenIdx = parseInt(e.target.value, 10) || 0;
+        const chosenPr = productsList[chosenIdx];
+        if (chosenPr && chosenPr.adData) {
+          lastGeneratedResult.ad_data = chosenPr.adData;
+          renderProductAdData(chosenPr.adData, data);
+        }
+      };
+    }
+  } else {
+    if (selectorBar) selectorBar.style.display = 'none';
+  }
+
+  // Render sản phẩm đầu tiên
+  const initialAd = productsList[0]?.adData || data.ad_data;
+  if (initialAd) {
+    lastGeneratedResult.ad_data = initialAd;
+    renderProductAdData(initialAd, data);
+  }
 
   // 5. Images Grid - Tổng hợp ảnh của tất cả sản phẩm đã tải
   const gridImg = document.getElementById('grid_images');
-  gridImg.innerHTML = '';
-
-  const allImages = [];
-  if (data.products_results && data.products_results.length > 0) {
-    data.products_results.forEach(pr => {
-      if (pr.downloaded_images) allImages.push(...pr.downloaded_images);
-    });
-  } else if (data.downloaded_images) {
-    allImages.push(...data.downloaded_images);
-  }
-
-  document.getElementById('res_img_count').innerText = allImages.length;
-  document.getElementById('label_img_folder').innerText = data.images_folder || '--';
-
-  allImages.forEach(img => {
-    const item = document.createElement('div');
-    item.className = 'gallery-item';
-    item.title = `${img.fileName} (Bấm để xem vị trí file trong Explorer)`;
-
-    let imgSrc = img.dataUrl;
-    if (!imgSrc && img.localPath) {
-      const norm = img.localPath.replace(/\\/g, '/');
-      const fileUrl = norm.startsWith('/') ? `file://${norm}` : `file:///${norm}`;
-      imgSrc = encodeURI(fileUrl).replace(/#/g, '%23').replace(/\?/g, '%3F');
+  if (gridImg) {
+    gridImg.innerHTML = '';
+    const allImages = [];
+    if (data.products_results && data.products_results.length > 0) {
+      data.products_results.forEach(pr => {
+        if (pr.downloaded_images) allImages.push(...pr.downloaded_images);
+      });
+    } else if (data.downloaded_images) {
+      allImages.push(...data.downloaded_images);
     }
 
-    item.innerHTML = `
-      <img src="${imgSrc || 'icon.png'}" alt="${img.fileName}" loading="lazy">
-      <div class="gallery-item-name">${img.fileName}</div>
-    `;
+    const resImgCountEl = document.getElementById('res_img_count');
+    if (resImgCountEl) resImgCountEl.innerText = allImages.length;
+    const labelImgFolder = document.getElementById('label_img_folder');
+    if (labelImgFolder) labelImgFolder.innerText = data.images_folder || '--';
 
-    item.addEventListener('click', () => {
-      if (img.localPath && window.electronAPI && window.electronAPI.showItemInFolder) {
-        window.electronAPI.showItemInFolder(img.localPath);
+    allImages.forEach(img => {
+      const item = document.createElement('div');
+      item.className = 'gallery-item';
+      item.title = `${img.fileName} (Bấm để xem vị trí file trong Explorer)`;
+      let imgSrc = img.dataUrl;
+      if (!imgSrc && img.localPath) {
+        const norm = img.localPath.replace(/\\/g, '/');
+        const fileUrl = norm.startsWith('/') ? `file://${norm}` : `file:///${norm}`;
+        imgSrc = encodeURI(fileUrl).replace(/#/g, '%23').replace(/\?/g, '%3F');
       }
+      item.innerHTML = `
+        <img src="${imgSrc || 'icon.png'}" alt="${img.fileName}" loading="lazy">
+        <div class="gallery-item-name">${img.fileName}</div>
+      `;
+      item.addEventListener('click', () => {
+        if (img.localPath && window.electronAPI && window.electronAPI.showItemInFolder) {
+          window.electronAPI.showItemInFolder(img.localPath);
+        }
+      });
+      gridImg.appendChild(item);
     });
-
-    gridImg.appendChild(item);
-  });
+  }
 
   // 6. CSV Tab
   const labelCsvPath = document.getElementById('label_csv_file_path');
@@ -1391,10 +1466,15 @@ function renderResults(data) {
     }
   }
 
-  // Chuyển về Tab Preview xem trước mẫu quảng cáo đầu tiên khi hoàn tất
+  // Gắn lại sự kiện tab đảm bảo 100% hoạt động
+  initResultsTabEvents();
+
+  // Chuyển về Tab Preview
   switchResultTab('tab_preview');
 
-  resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (resultsSection) {
+    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 
