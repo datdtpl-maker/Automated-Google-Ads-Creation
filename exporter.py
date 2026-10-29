@@ -80,7 +80,7 @@ def export_to_google_ads_files(ad_data: dict, output_dir: str = "output", max_cp
     
     # Xuất file ALL-IN-ONE (1 File CSV duy nhất chuẩn 100% Web Bulk Upload: Nhóm, Quảng Cáo, Từ Khóa)
     columns_all = [
-        'Campaign', 'Ad group', 'Campaign status', 'Ad group status', 'Max CPC',
+        'Campaign', 'Campaign Type', 'Campaign status', 'Networks', 'Ad group', 'Ad group status', 'Max CPC',
         'Ad type', 'Final URL', 'Path 1', 'Path 2'
     ] + [f'Headline {i}' for i in range(1, 16)] + [f'Description {i}' for i in range(1, 5)] + [
         'Keyword', 'Criterion Type'
@@ -90,8 +90,10 @@ def export_to_google_ads_files(ad_data: dict, output_dir: str = "output", max_cp
     # Dòng 1: Khởi tạo Nhóm (Ad Group) - Mặc định Max CPC
     row_ag = {col: '' for col in columns_all}
     row_ag['Campaign'] = ad_data["campaign_name"]
-    row_ag['Ad group'] = ad_data["ad_group_name"]
+    row_ag['Campaign Type'] = 'Search'
     row_ag['Campaign status'] = 'Enabled'
+    row_ag['Networks'] = 'Google search'
+    row_ag['Ad group'] = ad_data["ad_group_name"]
     row_ag['Ad group status'] = 'Enabled'
     row_ag['Max CPC'] = max_cpc
     all_in_one_rows.append(row_ag)

@@ -618,7 +618,7 @@ ipcMain.handle('get-product-details', async (event, id) => {
 
 // 9. Cấu trúc Header chuẩn Google Ads Bulk Upload (Tự động tạo Chiến dịch, Ngân sách, Nhóm, RSA, Từ khóa)
 const CSV_HEADERS = [
-    'Campaign', 'Campaign Type', 'Campaign status', 'Budget', 'Budget type', 'Bid Strategy type', 'EU political ads', 'Location',
+    'Campaign', 'Campaign Type', 'Campaign status', 'Networks', 'Budget', 'Budget type', 'Bid Strategy type', 'EU political ads', 'Location',
     'Ad group', 'Ad group status', 'Max CPC',
     'Ad type', 'Final URL', 'Path 1', 'Path 2'
 ];
@@ -877,6 +877,7 @@ QUY TẮC BẮT BUỘC TRÊN GOOGLE ADS:
             'Campaign': targetCampName,
             'Campaign Type': 'Search',
             'Campaign status': 'Enabled',
+            'Networks': 'Google search',
             'Budget': dailyBudget || 100000,
             'Budget type': 'Daily',
             'Bid Strategy type': 'Maximize conversions',
